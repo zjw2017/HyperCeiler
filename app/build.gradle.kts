@@ -23,16 +23,21 @@ lsparanoid {
 }
 
 val apkId = "HyperCeiler"
-val buildTypes = "release"
+val buildTypes = "debug"
 val roots = mapOf(
     "animation" to "libs/animation-${buildTypes}.aar",
     "appcompat" to "libs/appcompat-${buildTypes}.aar",
     "core" to "libs/core-${buildTypes}.aar",
+    "folme" to "libs/folme-${buildTypes}.aar",
+    "graphics" to "libs/graphics-${buildTypes}.aar",
     "haptic" to "libs/haptic-${buildTypes}.aar",
+    "navigator" to "libs/navigator-${buildTypes}.aar",
+    "nestedheader" to "libs/nestedheader-${buildTypes}.aar",
     "preference" to "libs/preference-${buildTypes}.aar",
+    "recyclerview" to "libs/recyclerview-${buildTypes}.aar",
     "smooth" to "libs/smooth-${buildTypes}.aar",
     "springback" to "libs/springback-${buildTypes}.aar",
-    "external" to "libs/external-${buildTypes}.aar"
+    "viewpager" to "libs/viewpager-${buildTypes}.aar"
 )
 
 val getGitCommitCount: () -> Int = {
