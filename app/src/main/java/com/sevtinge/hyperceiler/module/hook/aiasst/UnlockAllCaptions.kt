@@ -16,24 +16,20 @@
 
   * Copyright (C) 2023-2024 HyperCeiler Contributions
 */
-package com.sevtinge.hyperceiler.module.hook.powerkeeper
+package com.sevtinge.hyperceiler.module.hook.aiasst
 
-import com.github.kyuubiran.ezxhelper.*
+import com.github.kyuubiran.ezxhelper.ClassUtils.loadClass
 import com.github.kyuubiran.ezxhelper.HookFactory.`-Static`.createHook
+import com.github.kyuubiran.ezxhelper.finders.MethodFinder.`-Static`.methodFinder
 import com.sevtinge.hyperceiler.module.base.*
-import com.sevtinge.hyperceiler.module.base.dexkit.*
-import com.sevtinge.hyperceiler.module.base.dexkit.DexKitTool.addUsingStringsEquals
 
-object CustomRefreshRate : BaseHook() {
+object UnlockAllCaptions : BaseHook() {
     override fun init() {
-        DexKit.getDexKitBridge().findMethod {
-            matcher {
-                addUsingStringsEquals("custom_mode_switch", "fucSwitch")
+        // by PedroZ
+        loadClass("com.xiaomi.aiasst.vision.common.BuildConfigUtils").methodFinder()
+            .filterByName("isSupplierOnline")
+            .single().createHook {
+                returnConstant(true)
             }
-        }.single().getMethodInstance(lpparam.classLoader).createHook {
-            before {
-                ObjectUtils.setObject(it.thisObject, "mIsCustomFpsSwitch", "true")
-            }
-        }
     }
 }

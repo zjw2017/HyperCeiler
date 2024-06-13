@@ -27,11 +27,13 @@ import com.sevtinge.hyperceiler.module.hook.systemsettings.AddGoogleListHeader;
 import com.sevtinge.hyperceiler.module.hook.systemsettings.AddMiuiPlusEntry;
 import com.sevtinge.hyperceiler.module.hook.systemsettings.AllowManageAllNotifications;
 import com.sevtinge.hyperceiler.module.hook.systemsettings.AppsFreezerEnable;
+import com.sevtinge.hyperceiler.module.hook.systemsettings.DisableInstallUnknownVerify;
 import com.sevtinge.hyperceiler.module.hook.systemsettings.EnableFoldArea;
 import com.sevtinge.hyperceiler.module.hook.systemsettings.EnablePadArea;
 import com.sevtinge.hyperceiler.module.hook.systemsettings.EnableSpeedMode;
 import com.sevtinge.hyperceiler.module.hook.systemsettings.HyperCeilerSettings;
 import com.sevtinge.hyperceiler.module.hook.systemsettings.InternationalBuild;
+import com.sevtinge.hyperceiler.module.hook.systemsettings.LanguageMenuShowAllApps;
 import com.sevtinge.hyperceiler.module.hook.systemsettings.LinkTurbo;
 import com.sevtinge.hyperceiler.module.hook.systemsettings.ModifySystemVersion;
 import com.sevtinge.hyperceiler.module.hook.systemsettings.MoreNotificationSettings;
@@ -74,6 +76,7 @@ public class SystemSettingsT extends BaseModule {
         initHook(new QuickManageUnknownAppSources(), mPrefsMap.getBoolean("system_settings_permission_unknown_origin_app"));
         initHook(new QuickManagerAccessibilityPermission(), mPrefsMap.getBoolean("system_settings_permission_accessibility"));
         initHook(new InternationalBuild(), mPrefsMap.getBoolean("system_settings_international_build"));
+        initHook(new DisableInstallUnknownVerify(), mPrefsMap.getBoolean("system_settings_permission_disable_install_unknown_verify"));
         initHook(new NewNFCPage(), mPrefsMap.getBoolean("system_settings_new_nfc_page"));
         initHook(new AppsFreezerEnable(), mPrefsMap.getBoolean("system_settings_apps_freezer"));
         // initHook(new BluetoothRestrict(), mPrefsMap.getBoolean("various_disable_bluetooth_restrict"));
@@ -87,6 +90,7 @@ public class SystemSettingsT extends BaseModule {
         initHook(NoveltyHaptic.INSTANCE, mPrefsMap.getBoolean("system_settings_novelty_haptic"));
         initHook(new MoreNotificationSettings(), mPrefsMap.getBoolean("system_settings_more_notification_settings"));
         initHook(new AllowManageAllNotifications(), mPrefsMap.getBoolean("system_framework_allow_manage_all_notifications"));
+        initHook(new LanguageMenuShowAllApps(), mPrefsMap.getBoolean("system_settings_lang_menu_shouw_all_app"));
 
         initHook(new EnablePadArea(), mPrefsMap.getBoolean("system_settings_enable_pad_area"));
         initHook(new EnableFoldArea(), mPrefsMap.getBoolean("system_settings_enable_fold_area"));

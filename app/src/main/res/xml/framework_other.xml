@@ -118,6 +118,7 @@
         <SwitchPreference
             android:defaultValue="false"
             android:key="prefs_key_system_framework_hook_entry"
+            android:summary="@string/system_framework_hook_entry_desc"
             android:title="@string/system_framework_hook_entry" />
 
         <SwitchPreference
@@ -159,6 +160,11 @@
             android:title="@string/system_framework_clipboard_whitelist_list"
             app:isPreferenceVisible="false" />
 
+        <SwitchPreference
+            android:defaultValue="false"
+            android:key="prefs_key_system_framework_allow_disable_protected_package"
+            android:title="@string/system_framework_allow_disable_protected_package" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/system_framework_shortcut_title">
@@ -184,5 +190,16 @@
             android:summary="@string/system_framework_clean_open_apps_desc"
             android:title="@string/system_framework_clean_open_apps" />
 
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/system_framework_other_title">
+        <SwitchPreference
+            android:defaultValue="false"
+            android:key="prefs_key_system_framework_auto_start_apps_enable"
+            android:title="@string/system_framework_auto_start_apps" />
+        <Preference
+            android:dependency="prefs_key_system_framework_auto_start_apps_enable"
+            android:key="prefs_key_system_framework_auto_start_apps"
+            android:title="@string/system_framework_auto_start_apps" />
     </PreferenceCategory>
 </PreferenceScreen>

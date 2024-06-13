@@ -47,6 +47,7 @@ public class OtherSettings extends DashboardFragment implements Preference.OnPre
 
     Preference mCleanShareApps;
     Preference mCleanOpenApps;
+    Preference mAutoStart;
     Preference mClipboardWhitelistApps;
     SwitchPreference mEntry;
     SwitchPreference mUseOriginalAnim;
@@ -68,6 +69,7 @@ public class OtherSettings extends DashboardFragment implements Preference.OnPre
     public void initPrefs() {
         mCleanShareApps = findPreference("prefs_key_system_framework_clean_share_apps");
         mCleanOpenApps = findPreference("prefs_key_system_framework_clean_open_apps");
+        mAutoStart = findPreference("prefs_key_system_framework_auto_start_apps");
         mClipboardWhitelistApps = findPreference("prefs_key_system_framework_clipboard_whitelist_apps");
         mVerifyDisable = findPreference("prefs_key_system_framework_disable_verify_can_ve_disabled");
         mUseOriginalAnim = findPreference("prefs_key_system_framework_other_use_original_animation");
@@ -88,6 +90,17 @@ public class OtherSettings extends DashboardFragment implements Preference.OnPre
         mEntry.setVisible(isMoreHyperOSVersion(1f));
         mUseOriginalAnim.setVisible(!isAndroidVersion(33));
         mDisableDeviceLog.setVisible(isMoreAndroidVersion(33));
+
+        mAutoStart.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
+            @Override
+            public boolean onPreferenceClick(@NonNull Preference preference) {
+                Intent intent = new Intent(getActivity(), SubPickerActivity.class);
+                intent.putExtra("mode", AppPicker.LAUNCHER_MODE);
+                intent.putExtra("key", preference.getKey());
+                startActivity(intent);
+                return true;
+            }
+        });
 
         mCleanShareApps.setOnPreferenceClickListener(preference -> {
             Intent intent = new Intent(getActivity(), SubPickerActivity.class);

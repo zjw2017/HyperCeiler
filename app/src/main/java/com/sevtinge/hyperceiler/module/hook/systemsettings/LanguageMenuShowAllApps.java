@@ -16,23 +16,22 @@
 
   * Copyright (C) 2023-2024 HyperCeiler Contributions
 */
-package com.sevtinge.hyperceiler.module.hook.joyose
+package com.sevtinge.hyperceiler.module.hook.systemsettings;
 
-import com.github.kyuubiran.ezxhelper.HookFactory.`-Static`.createHook
-import com.sevtinge.hyperceiler.module.base.*
-import com.sevtinge.hyperceiler.module.base.dexkit.*
-import com.sevtinge.hyperceiler.module.base.dexkit.DexKitTool.addUsingStringsEquals
+import android.content.Context;
 
+import com.sevtinge.hyperceiler.module.base.BaseHook;
 
-object EnableGpuTuner : BaseHook() {
-    override fun init() {
-        DexKit.getDexKitBridge().findMethod {
-            matcher {
-                addUsingStringsEquals("GPUTUNER_SWITCH")
-                returnType = "boolean"
+import de.robv.android.xposed.XC_MethodHook;
+
+public class LanguageMenuShowAllApps extends BaseHook {
+    @Override
+    public void init() throws NoSuchMethodException {
+        findAndHookMethod("android.util.FeatureFlagUtils", "isEnabled", Context.class, String.class, new MethodHook() {
+            @Override
+            protected void before(MethodHookParam param) throws Throwable {
+                if (param.args[1] == "settings_app_locale_opt_in_enabled") param.setResult(false);
             }
-        }.single().getMethodInstance(lpparam.classLoader).createHook {
-            returnConstant(true)
-        }
+        });
     }
 }

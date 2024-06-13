@@ -16,22 +16,14 @@
 
   * Copyright (C) 2023-2024 HyperCeiler Contributions
 */
-package com.sevtinge.hyperceiler.module.hook.joyose
+package com.sevtinge.hyperceiler.module.base.dexkit;
 
-import com.github.kyuubiran.ezxhelper.HookFactory.`-Static`.createHook
-import com.sevtinge.hyperceiler.module.base.*
-import com.sevtinge.hyperceiler.module.base.dexkit.*
-import com.sevtinge.hyperceiler.module.base.dexkit.DexKitTool.addUsingStringsEquals
+import org.luckypray.dexkit.DexKitBridge;
 
-object DisableCloudControl : BaseHook() {
-    override fun init() {
-        DexKit.getDexKitBridge().findMethod {
-            matcher {
-                addUsingStringsEquals("job exist, sync local...")
-                returnType = "void"
-            }
-        }.single().getMethodInstance(lpparam.classLoader).createHook {
-            returnConstant(null)
-        }
-    }
+import java.lang.reflect.AnnotatedElement;
+import java.util.List;
+
+public interface IDexKitList {
+    List<AnnotatedElement> dexkit(DexKitBridge bridge)
+            throws ReflectiveOperationException;
 }

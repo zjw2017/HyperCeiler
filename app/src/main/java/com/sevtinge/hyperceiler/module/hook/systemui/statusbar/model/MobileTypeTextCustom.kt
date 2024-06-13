@@ -31,8 +31,7 @@ object MobileTypeTextCustom : BaseHook() {
                 it[0] == Int::class.java
             }.single().createHook {
                 after {
-                    it.result =
-                        mPrefsMap.getString("system_ui_status_bar_mobile_type_custom", "ERR")
+                    it.result = mPrefsMap.getString("system_ui_status_bar_mobile_type_custom", "ERR")
                 }
             }
     }

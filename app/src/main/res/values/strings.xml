@@ -37,9 +37,8 @@
     <!--Introduction to Xposed Modules-->
     <string name="xposed_description">Make HyperOS/MIUI Great Again!</string>
 
-    <string name="hyperos" translatable="false">HyperOS</string>
-    <string name="miui" translatable="false">MIUI</string>
-    <string name="ceiler_description" translatable="false">Make %s Great Again!</string>
+    <string name="description_hyperos" translatable="false">Make HyperOS Great Again!</string>
+    <string name="description_miui" translatable="false">Make MIUI Great Again!</string>
 
     <string name="new_permission_wifi_state_desc">add and delete files on device\'s internal storage</string>
     <string name="new_permission_location_desc">used to provide services such as latitude and longitude</string>
@@ -48,8 +47,8 @@
     <string name="new_cta_app_all_purpose_title">Welcome to HyperCeiler. This application relies on the Xposed framework to run. You can use this application to hijack and modify other supported applications to enhance the system. During use, in order to provide you with more functions, we may apply for Root/Su permissions from you. You can manage it at any time by going to your Root/Su Manager.</string>
     <!--HyperCeiler Settings/About Page-->
     <string name="language">English</string>
-    <string name="translator">Neko Qiqi</string>
-    <string name="translator_url">https://github.com/mu7220</string>
+    <string name="translator">Re.chronoRain</string>
+    <string name="translator_url">https://github.com/ReChronoRain</string>
     <string name="home">Home</string>
     <string name="edit">Please enter text</string>
     <string name="kill">Kill tool</string>
@@ -174,16 +173,16 @@
     <string name="abc_action_bar_home_description">Back to the homepage</string>
     <string name="abc_action_bar_up_description">Back to the previous level</string>
     <string name="actionbar_button_up_description">Back</string>
-    <string name="appcompat_action_mode_select_all">Select all</string>
-    <string name="appcompat_cancel_description">Cancel</string>
-    <string name="appcompat_confirm_description">Ok</string>
-    <string name="appcompat_select_all_description">Select all</string>
-    <string name="appcompat_deselect_all_description">Unselect all</string>
-    <string name="appcompat_delete_description">Delete</string>
-    <string name="appcompat_search_action_mode_cancel">Cancel</string>
-    <string name="appcompat_search_input_description">Search</string>
-    <string name="appcompat_actionbar_immersion_button_more_description">More</string>
-    <string name="appcompat_action_mode_inverse">Inverse</string>
+    <string name="miuix_appcompat_action_mode_select_all">Select all</string>
+    <string name="miuix_appcompat_cancel_description">Cancel</string>
+    <string name="miuix_appcompat_confirm_description">Ok</string>
+    <string name="miuix_appcompat_select_all_description">Select all</string>
+    <string name="miuix_appcompat_deselect_all_description">Unselect all</string>
+    <string name="miuix_appcompat_delete_description">Delete</string>
+    <string name="miuix_appcompat_search_action_mode_cancel">Cancel</string>
+    <string name="miuix_appcompat_search_input_description">Search</string>
+    <string name="miuix_appcompat_actionbar_immersion_button_more_description">More</string>
+    <string name="miuix_appcompat_action_mode_inverse">Inverse</string>
     <string name="color_picker_alpha_text_transparent">Opacity</string>
     <string name="color_picker_tab_grid">Grid</string>
     <string name="color_picker_tab_slider">Slider</string>
@@ -326,9 +325,10 @@
     <string name="control_center_5g_off">Off</string>
     <string name="control_center_5g_v1">5G Style One</string>
     <string name="control_center_5g_v2">5G Style Two</string>
-    <string name="no_blur">No blur</string>
-    <string name="miui_blur">HyperOS blur</string>
-    <string name="android_blur">AOSP blur</string>
+    <string name="no_blur">No Blur</string>
+    <string name="miui_blur">HyperOS Blur</string>
+    <string name="miui_android_blur">AOSP Blur (self-implemented by app)</string>
+    <string name="android_blur">AOSP Blur</string>
     <string name="system_ui_statusbar_network_speed_style_1">Values and units are displayed in a single line</string>
     <string name="system_ui_statusbar_network_speed_style_2">Values and units are displayed in two rows</string>
     <string name="system_ui_statusbar_network_speed_style_3">The uplink and downlink network speed is displayed in a single line</string>
@@ -338,6 +338,10 @@
     <string name="system_ui_statusbar_clock_style_3">Two-line display\n\nNotification bar mini clock on top\nStatus bar clock on bottom</string>
     <string name="mediaeditor_mickey">Mickey Mouse</string>
     <string name="mediaeditor_strawberry_bear">Strawberry Bear</string>
+    <string name="tiles_gms">Google Play Service</string>
+    <string name="tiles_taplus">Taplus</string>
+    <string name="tiles_5g">5G</string>
+    <string name="tiles_sunshine_mode">Sunshine Mode</string>
     <!--System Framework-->
     <string name="system_framework">System Framework</string>
     <string name="system_framework_volume_title">Volume</string>
@@ -360,6 +364,8 @@
     <string name="system_framework_volume_first_press">Instant volume adjustment</string>
     <string name="system_framework_volume_separate_control">Independent volume control</string>
     <string name="system_framework_volume_disable_safe">Remove high volume safety restrictions</string>
+    <string name="default_volume_safe_all">Enabled for all cases</string>
+    <string name="default_volume_safe_headset">Enabled only when headphones are connected</string>
     <string name="system_framework_volume_separate_slider">Notification volume slider</string>
     <string name="system_framework_volume_media_steps">Media volume level</string>
     <string name="system_framework_volume_media_steps_desc">It may cause the scrolling of the volume bar to freeze or the Bluetooth volume to be abnormal</string>
@@ -391,7 +397,8 @@
 
     <string name="system_framework_screen_title">Display &amp; Notifications</string>
     <string name="system_framework_core_title">Core underneath</string>
-    <string name="system_framework_hook_entry">Unlock the smart charge off limit</string>
+    <string name="system_framework_hook_entry">Unlock navigation disconnection protection limit</string>
+    <string name="system_framework_hook_entry_desc">Navigation disconnection protection allows it to be used in non-navigation scenarios</string>
     <string name="system_framework_shortcut_title">Share shortcuts</string>
     <string name="system_framework_screen_all_rotations">Screen rotation</string>
     <string name="system_framework_allow_untrusted_touch">Allow untrusted touch</string>
@@ -405,6 +412,7 @@
     <string name="system_framework_disable_app_link_verify_desc">Revert to opening supported apps directly when opening links without enabling supported links in app settings</string>
     <string name="system_framework_clean_share_menu">Clean up share menu</string>
     <string name="system_framework_clean_share_apps">Selected applications</string>
+    <string name="system_framework_auto_start_apps">Restriction chain exemptions</string>
     <string name="system_framework_clean_share_apps_desc">The selected app will not appear in the share menu</string>
     <string name="system_framework_clean_open_menu">Clean up the open with menu</string>
     <string name="system_framework_clean_open_apps">Selected applications</string>
@@ -436,6 +444,7 @@
     <string name="system_framework_quick_screenshot_desc">Disable screenshot delay</string>
     <string name="system_framework_disable_link_turbo_toast">Hide LinkTurbo Toast</string>
     <string name="system_framework_allow_third_theme">Allows to use third-party themes</string>
+    <string name="system_framework_allow_disable_protected_package">Allows to disable protected apps</string>
     <!--Package Manager Service-->
     <string name="system_framework_corepatch_title">Package Manager Service</string>
     <string name="system_framework_core_patch_downgr">Allow downgrade</string>
@@ -454,6 +463,8 @@
     <string name="system_framework_core_patch_enhanced_mode_desc">Pass some validation in the application</string>
     <string name="system_framework_disable_low_api_check">Disable low API check</string>
     <string name="system_framework_disable_low_api_check_desc">Apps with APIs lower than 23 are allowed</string>
+    <string name="system_framework_disable_persistent">Disable persistent checks</string>
+    <string name="system_framework_disable_persistent_more">Allows you to update persistent apps directly, such as updating the system interface directly</string>
     <!--Browser-->
     <string name="browser">Browser</string>
     <string name="browser_debug_mode">Unlock developer options</string>
@@ -514,6 +525,7 @@
     <string name="camera_settings_men_makeup">Unlock Adjust makeup effects for men</string>
     <string name="camera_settings_lab_options">Enable Lab options</string>
     <string name="camera_settings_track_eyes">Unlock Track eyes</string>
+    <string name="camera_max_brightness">Force Maximum Brightness When Using Camera</string>
     <!--Calendar-->
     <string name="calendar">Calendar</string>
     <string name="calendar_unlock_subscription">Unlock Subscription</string>
@@ -728,7 +740,7 @@
     <string name="system_ui_statusbar_clock_layout_s">Status Bar Clock</string>
     <string name="system_ui_statusbar_clock_layout_b">Notification Bar Big Clock</string>
     <string name="system_ui_statusbar_clock_layout_n">Notification Bar Mini Clock</string>
-     <string name="system_ui_statusbar_clock_editor_s">Status bar clock format</string>
+    <string name="system_ui_statusbar_clock_editor_s">Status bar clock format</string>
     <string name="system_ui_statusbar_clock_editor_n">Notification bar mini clock format</string>
     <string name="system_ui_statusbar_clock_style_f">Status bar clock arrangement</string>
     <string name="system_ui_statusbar_indicator_battery_title">Power related</string>
@@ -777,9 +789,7 @@
     <string name="quick_settings_state_change_message_on_my">%1$s is on</string>
     <string name="quick_settings_state_change_message_off_my">%1$s is off</string>
     <string name="system_control_center_5g_tile">5G network switch</string>
-    <string name="system_control_center_5g_toggle_label">5G Network</string>
     <string name="system_control_center_reduce_bright_colors_tile">Extremely dark</string>
-    <string name="system_control_center_taplus_label">Taplus switches</string>
     <string name="system_control_center_sunshine_mode">Sunshine Mode</string>
     <string name="system_ui_control_auto_close">Magnetic tiles automatically retract</string>
     <string name="system_ui_control_center_qs_bg_color">Background color</string>
@@ -841,6 +851,7 @@
     <string name="system_ui_control_center_switch_cc_and_notification_title">Switch control center and notification drawer</string>
     <string name="system_ui_control_center_hide_operator">Carrier name customization</string>
     <string name="system_ui_control_center_hide_delimiter">Only dividers are hidden</string>
+    <string name="system_ui_control_center_hide_display_device_name">Display device name</string>
     <string name="system_ui_control_center_hide_name">Hide all names</string>
     <string name="system_ui_control_center_cc_bluetooth_tile_style_title">Bluetooth tile style</string>
     <string name="system_ui_control_center_cc_bluetooth_tile_style_sum">Move the bluetooth tile near the network tile</string>
@@ -858,12 +869,13 @@
     <string name="system_ui_control_center_card_tiles_customization_desc">Press and hold and drag the cards you\'ve added to adjust the order</string>
     <string name="system_ui_control_center_card_tiles_customization_add">Added</string>
     <string name="system_ui_control_center_card_tiles_customization_not_add">Not added</string>
-    <string name="system_ui_control_center_card_tiles_customization_notice">The current system version only support \"WLAN\", \"Cellular\", \"Bluetooth\", \"Flashlight\", \"VoWiFi SIM1\", \"VoWiFi SIM2\" tiles display normally.</string>
     <string name="system_ui_control_center_unlock_blur_supported">Remove the notification blur restriction</string>
     <string name="system_ui_control_center_unlock_blur_supported_desc">There is no restriction on background blur for official premium materials only for third-party theme removal</string>
 
     <string name="system_ui_other_title">Other</string>
-    <string name="system_ui_disable_volume">Native volume bar</string>
+    <string name="system_ui_disable_volume">Native Volume Bar</string>
+    <string name="system_ui_disable_power">Native Shutdown Menu</string>
+    <string name="system_ui_disable_power_desc">MIUI uses the legacy menu UI, while hyperOS uses the AOSP menu UI</string>
     <string name="system_ui_disable_volume_desc">The modification of Xiaomi\'s volume bar does not apply to the native volume bar</string>
     <string name="system_ui_unlock_clipboard">Unlock the AOSP clipboard editor</string>
     <string name="system_ui_unlock_clipboard_desc">After unlocking, it will pop up together with the MIUI/HyperOS editor.</string>
@@ -920,6 +932,7 @@
     <string name="system_usb_reverse_charge">Reverse Charge</string>
     <string name="system_usb_tethering">USB Tethering</string>
     <string name="system_settings_connection_sharing_title">Network Connection &amp; sharing</string>
+    <string name="system_settings_lang_menu_shouw_all_app">Show All Apps in Language Manage Menu</string>
     <string name="system_settings_new_nfc_page">New NFC Page</string>
     <string name="system_settings_new_nfc_page_desc">After opening, the default payment application for unsupported models cannot select Xiaomi Wallet</string>
 
@@ -938,6 +951,7 @@
     <string name="system_settings_permission_unknown_origin_app">Install unknown app permissions without searching the application list</string>
     <string name="system_settings_permission_unknown_origin_app_desc">Use the international build, jump directly to the permission switch of the corresponding application “displayed on top of other applications”</string>
     <string name="system_settings_permission_accessibility">Accessibility services permissions without searching the application list</string>
+    <string name="system_settings_permission_disable_install_unknown_verify">Disable verify when turn on allow install unknown package permission</string>
     <string name="system_settings_develop_title">Developer options</string>
     <string name="system_settings_apps_freezer">Force showing freeze cached apps</string>
     <string name="system_settings_apps_freezer_more">Once enabled, this feature can be found in \"Developer Options,\" but its functionality is not guaranteed</string>
@@ -1215,6 +1229,8 @@
 
     <string name="home_dock">Dock</string>
     <string name="home_dock_bg_enable">Add Dock Bar Background</string>
+    <string name="home_dock_bg_all_app">Drawer mode compatible</string>
+    <string name="home_dock_bg_all_app_more">Turning on prevents the Dock from being truncated, but the Dock height is limited</string>
     <string name="home_dock_bg_height">Height</string>
     <string name="home_dock_bg_height_desc">Dock height</string>
     <string name="home_dock_bg_margin_horizontal">Vertical margin</string>
@@ -1356,6 +1372,9 @@
     <string name="screenshot_save_to_pictures_desc">Canonical screenshot save location to /Pictures/Screenshots</string>
     <string name="screenshot_device_customize_title">Custom screenshot model with shell</string>
     <string name="screenshot_device_customize_desc">Please enter the device code, and the colored device should be filled with a suffix, for example:\n- Xiaomi 13, fill in the content is fuxi\n- Xiaomi 14 pink version, fill in the content is houji_PK</string>
+    <!--System Service Plugin-->
+    <string name="securityadd">System Service Plugin</string>
+    <string name="securityadd_disable_gb_ads">Disable Game Center Ads</string>
     <!--Security/Tablet security center-->
     <string name="security_center">Security</string>
     <string name="security_center_pad">Tablet security center</string>
@@ -1483,6 +1502,7 @@
     <!--AI Translate-->
     <string name="aiasst">AI Translate</string>
     <string name="aiasst_ai_captions">Force enabled AI captions</string>
+    <string name="aiasst_all_captions">Unlock multi-language online captions</string>
     <string name="aiasst_disable_watermark">Disable watermark</string>
     <!--Barrage-->
     <string name="barrage">Barrage</string>
@@ -1587,6 +1607,7 @@
     <string name="custom_background_color">Background color</string>
     <string name="custom_background_color_alpha">background color transparency</string>
     <string name="custom_background_corner_radius">Background rounded corners</string>
+    <string name="custom_background_blur_degree">Degree of ambiguity</string>
     <string name="custom_blur_enabled">Background blur</string>
     <string name="various_blur_radius">Blurry radius</string>
     <string name="various_background_corner_radius">Background rounded corners</string>
@@ -1684,7 +1705,7 @@
     <string name="safe_mode_cancel">Disable safe mode</string>
     <string name="safe_mode_ok">Deal with it later</string>
     <string name="safe_mode_later_title">Tip</string>
-    <string name="safe_mode_later_desc">%s is still in safe mode and HyperCeiler functionality has been disabled. Disable safe mode?</string>
+    <string name="safe_mode_later_desc">is still in safe mode and HyperCeiler functionality has been disabled. Disable safe mode?</string>
     <string name="safe_mode_recorder_title">Exception records</string>
     <string name="safe_mode_recorder_file">File</string>
     <string name="safe_mode_recorder_class">Class</string>
@@ -1707,5 +1728,10 @@
     <string name="ic_qs_title_autobrightness">Auto Brightness</string>
     <string name="ic_qs_title_vowifi1">VoWiFi SIM1</string>
     <string name="ic_qs_title_vowifi2">VoWiFi SIM2</string>
-    <string name="xiaoai">小爱同学</string>
+
+    <!--Telecom-->
+    <string name="telecom">Phone Calls</string>
+    <string name="scam_reminder_bypass_caption">Allow Dail call-forwarding MMI code directly</string>
+    <string name="scam_reminder_bypass_description">Allow Dail MMI Code like **21*8# to enable call-forwarding directly</string>
+
 </resources>

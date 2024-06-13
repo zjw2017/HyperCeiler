@@ -79,6 +79,14 @@
 
     <SwitchPreference
         android:defaultValue="true"
+        android:icon="@drawable/ic_phone"
+        android:key="prefs_key_telecom_state"
+        android:layout="@layout/preference_header"
+        android:summary="com.android.server.telecom"
+        android:title="@string/telecom" />
+
+    <SwitchPreference
+        android:defaultValue="true"
         android:icon="@drawable/ic_downloads"
         android:key="prefs_key_downloads_state"
         android:layout="@layout/preference_header"
@@ -276,8 +284,15 @@
         android:key="prefs_key_screenshot_state"
         android:layout="@layout/preference_header"
         android:summary="com.miui.screenshot"
-
         android:title="@string/screenshot" />
+
+    <SwitchPreference
+        android:defaultValue="true"
+        android:icon="@drawable/ic_securityadd"
+        android:key="prefs_key_securityadd_state"
+        android:layout="@layout/preference_header"
+        android:summary="com.miui.securityadd"
+        android:title="@string/securityadd" />
 
     <SwitchPreference
         android:defaultValue="true"

@@ -44,6 +44,12 @@
             android:key="prefs_key_home_dock_bg_custom_enable"
             android:title="@string/home_dock_bg_enable" />
 
+        <SwitchPreference
+            android:defaultValue="false"
+            android:key="prefs_key_home_dock_bg_all_app"
+            android:summary="@string/home_dock_bg_all_app_more"
+            android:title="@string/home_dock_bg_all_app" />
+
         <DropDownPreference
             android:defaultValue="0"
             android:dependency="prefs_key_home_dock_bg_custom_enable"
@@ -54,11 +60,11 @@
 
         <Preference
             android:dependency="prefs_key_home_dock_bg_custom_enable"
-            android:fragment="com.sevtinge.hyperceiler.ui.sub.CustomBackgroundSettings"
+            android:fragment="com.sevtinge.hyperceiler.ui.fragment.sub.CustomBackgroundSettings"
             android:key="prefs_key_home_dock_bg_custom"
             android:title="@string/home_dock_bg_custom" />
 
-        <SeekBarPreferenceCompat
+        <SeekBarPreferenceEx
             android:defaultValue="150"
             android:dependency="prefs_key_home_dock_bg_custom_enable"
             android:key="prefs_key_home_dock_bg_height"
@@ -70,7 +76,7 @@
             app:showSeekBarValue="true"
             app:stepValue="1" />
 
-        <SeekBarPreferenceCompat
+        <SeekBarPreferenceEx
             android:defaultValue="25"
             android:dependency="prefs_key_home_dock_bg_custom_enable"
             android:key="prefs_key_home_dock_bg_margin_horizontal"
@@ -82,7 +88,7 @@
             app:showSeekBarValue="true"
             app:stepValue="1" />
 
-        <!--SeekBarPreferenceCompat
+        <!--SeekBarPreferenceEx
             android:key="prefs_key_home_dock_bg_margin_top"
             android:dependency="prefs_key_home_dock_bg_custom_enable"
             android:title="@string/top_margin"
@@ -94,7 +100,7 @@
             app:format="%d dp"
             app:showSeekBarValue="true" /-->
 
-        <SeekBarPreferenceCompat
+        <SeekBarPreferenceEx
             android:defaultValue="15"
             android:dependency="prefs_key_home_dock_bg_custom_enable"
             android:key="prefs_key_home_dock_bg_margin_bottom"
@@ -106,7 +112,7 @@
             app:showSeekBarValue="true"
             app:stepValue="1" />
 
-        <SeekBarPreferenceCompat
+        <SeekBarPreferenceEx
             android:defaultValue="30"
             android:dependency="prefs_key_home_dock_bg_custom_enable"
             android:key="prefs_key_home_dock_bg_radius"
@@ -117,13 +123,25 @@
             app:showSeekBarValue="true"
             app:stepValue="1" />
 
-        <ColorPickerPreference
+        <SeekBarPreferenceEx
+            android:defaultValue="200"
             android:dependency="prefs_key_home_dock_bg_custom_enable"
-            android:title="@string/home_dock_bg_color"
-            android:key="prefs_key_home_dock_bg_color"
-            android:defaultValue="0" />
+            android:key="prefs_key_custom_background_blur_degree"
+            android:title="@string/custom_background_blur_degree"
+            app:defaultValueText="@string/array_default"
+            app:format="%d bl"
+            app:maxValue="500"
+            app:showSeekBarValue="true"
+            app:stepValue="1" />
 
-        <!--<SeekBarPreferenceCompat
+        <moralnorm.preference.ColorPickerPreference
+            android:defaultValue="0"
+            android:dependency="prefs_key_home_dock_bg_custom_enable"
+            android:key="prefs_key_home_dock_bg_color"
+            android:title="@string/home_dock_bg_color"
+            app:showAlphaSlider="true" />
+
+        <!--<SeekBarPreferenceEx
             android:key="prefs_key_home_dock_icon_margin_bottom"
             android:title="@string/home_dock_icon_margin_bottom"
             android:summary="@string/home_dock_icon_margin_bottom_desc"
@@ -133,7 +151,7 @@
             app:stepValue="1"
             android:dependency="prefs_key_home_dock_bg_custom_enable" />
 
-        <SeekBarPreferenceCompat
+        <SeekBarPreferenceEx
             android:key="prefs_key_home_dock_icon_bottom_margin"
             android:title="@string/home_dock_icon_bottom_margin"
             android:defaultValue="35"
@@ -141,7 +159,7 @@
             app:stepValue="1"
             android:dependency="prefs_key_home_dock_bg_custom_enable" />
 
-        <SeekBarPreferenceCompat
+        <SeekBarPreferenceEx
             android:key="prefs_key_home_dock_margin_bottom"
             android:title="@string/home_dock_margin_bottom"
             android:defaultValue="60"
