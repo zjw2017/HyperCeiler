@@ -39,7 +39,6 @@ public class CeilerTabActivity extends BaseCeilerTabActivity {
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
-        SharedPreferences mPrefs = PrefsUtils.mSharedPreferences;
         int count = Integer.parseInt(mPrefs.getString("prefs_key_settings_app_language", "-1"));
         if (count != -1) {
             LanguageHelper.setIndexLanguage(this, count, false);

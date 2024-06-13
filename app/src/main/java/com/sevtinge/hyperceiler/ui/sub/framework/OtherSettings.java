@@ -32,7 +32,6 @@ import com.sevtinge.hyperceiler.R;
 import com.sevtinge.hyperceiler.prefs.RecommendPreference;
 import com.sevtinge.hyperceiler.ui.SubPickerActivity;
 import com.sevtinge.hyperceiler.ui.dashboard.DashboardFragment;
-import com.sevtinge.hyperceiler.ui.fragment.base.SettingsPreferenceFragment;
 import com.sevtinge.hyperceiler.ui.sub.AppPicker;
 import com.sevtinge.hyperceiler.utils.KillApp;
 import com.sevtinge.hyperceiler.utils.ThreadPoolManager;

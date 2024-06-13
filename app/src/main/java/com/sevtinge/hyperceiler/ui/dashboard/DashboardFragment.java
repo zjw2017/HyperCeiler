@@ -17,6 +17,7 @@ import com.sevtinge.hyperceiler.ui.settings.SettingsPreferenceFragment;
 import com.sevtinge.hyperceiler.ui.settings.core.AbstractPreferenceController;
 import com.sevtinge.hyperceiler.ui.settings.core.BasePreferenceController;
 import com.sevtinge.hyperceiler.ui.settings.core.PreferenceControllerListHelper;
+import com.sevtinge.hyperceiler.utils.prefs.PrefsUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -87,6 +88,7 @@ public abstract class DashboardFragment extends SettingsPreferenceFragment {
 
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
+        PrefsUtils.setSharedPreferences(getPreferenceManager());
         refreshAllPreferences(getLogTag());
         mControllers.stream()
                 .map(controller -> (Preference) findPreference(controller.getPreferenceKey()))

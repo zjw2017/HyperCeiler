@@ -22,7 +22,6 @@ import android.os.Bundle;
 
 import com.sevtinge.hyperceiler.R;
 import com.sevtinge.hyperceiler.ui.dashboard.DashboardFragment;
-import com.sevtinge.hyperceiler.ui.fragment.base.SettingsPreferenceFragment;
 import com.sevtinge.hyperceiler.utils.prefs.PrefsUtils;
 
 import fan.preference.ColorPickerPreference;

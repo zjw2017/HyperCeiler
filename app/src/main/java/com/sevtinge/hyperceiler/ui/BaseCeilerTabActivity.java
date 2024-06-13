@@ -1,6 +1,7 @@
 package com.sevtinge.hyperceiler.ui;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -37,10 +38,11 @@ public abstract class BaseCeilerTabActivity extends NavigatorActivity
     protected ViewGroup mContent;
     private String mSelectHeaderFragment = null;
     private int mCurrentSelectedHeaderIndex = -1;
+    protected SharedPreferences mPrefs = PrefsUtils.mSharedPreferences;
 
     public void checkTheme() {
         if (AttributeResolver.resolve(this, R.attr.isNavigatorTheme) < 0) {
-            Log.d("NotesNaviActivityTAG", "reset Theme");
+            Log.d("CeilerTabActivity", "reset Theme");
             setTheme(R.style.NavigatorActivityTheme);
         }
     }

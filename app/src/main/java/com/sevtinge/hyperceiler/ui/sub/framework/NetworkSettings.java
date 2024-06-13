@@ -24,7 +24,6 @@ import com.sevtinge.hyperceiler.R;
 import com.sevtinge.hyperceiler.prefs.RecommendPreference;
 import com.sevtinge.hyperceiler.ui.dashboard.DashboardFragment;
 import com.sevtinge.hyperceiler.ui.sub.PhoneFragment;
-import com.sevtinge.hyperceiler.ui.fragment.base.SettingsPreferenceFragment;
 
 public class NetworkSettings extends DashboardFragment {
     RecommendPreference mRecommend;

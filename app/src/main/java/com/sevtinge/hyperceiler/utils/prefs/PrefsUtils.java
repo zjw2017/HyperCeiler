@@ -42,6 +42,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 import de.robv.android.xposed.XposedBridge;
+import fan.preference.PreferenceManager;
 
 public class PrefsUtils {
 
@@ -191,6 +192,12 @@ public class PrefsUtils {
             return (boolean) XposedInit.mPrefsMap.getObject(name, false);
         else
             return defValue;
+    }
+
+    public static void setSharedPreferences(PreferenceManager preferenceManager) {
+        preferenceManager.setSharedPreferencesName(mPrefsName);
+        preferenceManager.setSharedPreferencesMode(Context.MODE_PRIVATE);
+        preferenceManager.setStorageDeviceProtected();
     }
 
     public static void registerSharedPrefsObserver(Context context) {

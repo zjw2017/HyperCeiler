@@ -1,6 +1,5 @@
 package com.sevtinge.hyperceiler.ui.settings.core.lifecycle;
 
-import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 
@@ -10,7 +9,6 @@ import androidx.lifecycle.Lifecycle;
 import com.sevtinge.hyperceiler.utils.prefs.PrefsUtils;
 
 import fan.preference.PreferenceFragment;
-import fan.preference.PreferenceManager;
 
 public abstract class ObservablePreferenceFragment extends PreferenceFragment {
 
@@ -18,15 +16,8 @@ public abstract class ObservablePreferenceFragment extends PreferenceFragment {
 
     @Override
     public void onCreatePreferences(@Nullable Bundle bundle, @Nullable String s) {
-        setSharedPreferences(getPreferenceManager());
+        PrefsUtils.setSharedPreferences(getPreferenceManager());
     }
-
-    protected void setSharedPreferences(PreferenceManager preferenceManager) {
-        preferenceManager.setSharedPreferencesName(PrefsUtils.mPrefsName);
-        preferenceManager.setSharedPreferencesMode(Context.MODE_PRIVATE);
-        preferenceManager.setStorageDeviceProtected();
-    }
-
 
     public SharedPreferences getSharedPreferences() {
         return PrefsUtils.mSharedPreferences;

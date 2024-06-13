@@ -7,7 +7,6 @@ import androidx.annotation.NonNull;
 
 import com.sevtinge.hyperceiler.R;
 import com.sevtinge.hyperceiler.ui.dashboard.DashboardFragment;
-import com.sevtinge.hyperceiler.ui.fragment.base.SettingsPreferenceFragment;
 import com.sevtinge.hyperceiler.utils.PackagesUtils;
 import com.sevtinge.hyperceiler.utils.ThreadPoolManager;
 import com.sevtinge.hyperceiler.utils.ToastHelper;

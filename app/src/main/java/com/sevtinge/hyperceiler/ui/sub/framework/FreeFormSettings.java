@@ -21,11 +21,8 @@ package com.sevtinge.hyperceiler.ui.sub.framework;
 import static com.sevtinge.hyperceiler.utils.devicesdk.SystemSDKKt.isMoreHyperOSVersion;
 import static com.sevtinge.hyperceiler.utils.devicesdk.SystemSDKKt.isMoreMiuiVersion;
 
-import android.view.View;
-
 import com.sevtinge.hyperceiler.R;
 import com.sevtinge.hyperceiler.ui.dashboard.DashboardFragment;
-import com.sevtinge.hyperceiler.ui.fragment.base.SettingsPreferenceFragment;
 
 import fan.preference.SwitchPreference;
 

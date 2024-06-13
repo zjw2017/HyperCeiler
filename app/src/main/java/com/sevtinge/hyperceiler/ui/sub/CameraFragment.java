@@ -22,7 +22,6 @@ import static com.sevtinge.hyperceiler.utils.devicesdk.SystemSDKKt.isMoreHyperOS
 
 import com.sevtinge.hyperceiler.R;
 import com.sevtinge.hyperceiler.ui.dashboard.DashboardFragment;
-import com.sevtinge.hyperceiler.ui.fragment.base.SettingsPreferenceFragment;
 
 public class CameraFragment extends DashboardFragment {
 
