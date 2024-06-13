@@ -232,14 +232,19 @@ dependencies {
     implementation(libs.customview.poolingcontainer)
     implementation(libs.constraintlayout)
 
-    implementation(files(roots["animation"]))
+    //implementation(files(roots["animation"]))
     implementation(files(roots["appcompat"]))
     implementation(files(roots["core"]))
+    implementation(files(roots["folme"]))
+    implementation(files(roots["graphics"]))
     implementation(files(roots["haptic"]))
+    implementation(files(roots["navigator"]))
+    implementation(files(roots["nestedheader"]))
     implementation(files(roots["preference"]))
+    implementation(files(roots["recyclerview"]))
     implementation(files(roots["smooth"]))
     implementation(files(roots["springback"]))
-    implementation(files(roots["external"]))
+    implementation(files(roots["viewpager"]))
 
     implementation(files("libs/hyperceiler_expansion_packs-debug.aar"))
 }
