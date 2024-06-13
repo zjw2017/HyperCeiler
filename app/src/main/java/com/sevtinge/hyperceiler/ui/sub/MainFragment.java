@@ -95,7 +95,7 @@ public class MainFragment extends DashboardFragment implements HomepageEntrance.
 
     @Override
     protected int getPreferenceScreenResId() {
-        return R.xml.prefs_main;
+        return R.xml.xiaoai;
     }
 
     @Override

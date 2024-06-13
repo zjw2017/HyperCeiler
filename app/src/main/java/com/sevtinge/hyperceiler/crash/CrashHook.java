@@ -16,7 +16,7 @@
 
   * Copyright (C) 2023-2024 HyperCeiler Contributions
 */
-package com.sevtinge.hyperceiler.safe;
+package com.sevtinge.hyperceiler.crash;
 
 import android.app.ActivityOptions;
 import android.app.ApplicationErrorReport;

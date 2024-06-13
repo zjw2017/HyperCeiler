@@ -235,7 +235,9 @@ dependencies {
     implementation(libs.vectordrawable.animated)
     implementation(libs.customview)
     implementation(libs.customview.poolingcontainer)
-    implementation(libs.constraintlayout)
+    implementation(libs.constraintlayout) {
+        exclude("androidx.appcompat", "appcompat")
+    }
 
     //implementation(files(roots["animation"]))
     implementation(files(roots["appcompat"]))

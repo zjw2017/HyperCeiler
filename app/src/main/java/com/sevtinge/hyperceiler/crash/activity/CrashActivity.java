@@ -16,7 +16,7 @@
 
   * Copyright (C) 2023-2024 HyperCeiler Contributions
 */
-package com.sevtinge.hyperceiler.safe;
+package com.sevtinge.hyperceiler.crash.activity;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
@@ -29,6 +29,7 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 
 import com.sevtinge.hyperceiler.R;
+import com.sevtinge.hyperceiler.crash.CrashData;
 import com.sevtinge.hyperceiler.utils.DialogHelper;
 import com.sevtinge.hyperceiler.utils.shell.ShellInit;
 
@@ -36,7 +37,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
-import moralnorm.appcompat.app.AppCompatActivity;
+import fan.appcompat.app.AppCompatActivity;
 
 public class CrashActivity extends AppCompatActivity {
 
@@ -96,7 +97,7 @@ public class CrashActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         ShellInit.destroy();
         super.onDestroy();
     }

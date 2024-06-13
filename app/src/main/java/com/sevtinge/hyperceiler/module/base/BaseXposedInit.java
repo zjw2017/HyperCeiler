@@ -32,10 +32,10 @@ import android.os.Process;
 
 import androidx.annotation.CallSuper;
 
+import com.sevtinge.hyperceiler.crash.CrashHook;
 import com.sevtinge.hyperceiler.module.app.VariousSystemApps;
 import com.sevtinge.hyperceiler.module.app.VariousThirdApps;
 import com.sevtinge.hyperceiler.module.base.tool.ResourcesTool;
-import com.sevtinge.hyperceiler.crash.CrashHook;
 import com.sevtinge.hyperceiler.utils.api.ProjectApi;
 import com.sevtinge.hyperceiler.utils.prefs.PrefsMap;
 import com.sevtinge.hyperceiler.utils.prefs.PrefsUtils;

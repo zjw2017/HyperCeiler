@@ -18,6 +18,12 @@
  */
 package com.sevtinge.hyperceiler.utils;
 
+import static com.sevtinge.hyperceiler.utils.devicesdk.DeviceSDKKt.getLanguage;
+import static com.sevtinge.hyperceiler.utils.log.XposedLogUtils.logE;
+
+import android.content.Context;
+import android.content.res.AssetManager;
+
 import com.sevtinge.hyperceiler.callback.ITAG;
 import com.sevtinge.hyperceiler.utils.log.AndroidLogUtils;
 import com.sevtinge.hyperceiler.utils.log.XposedLogUtils;
@@ -30,11 +36,16 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -162,5 +173,49 @@ public class FileUtils {
             return false;
         }
         return true;
+    }
+
+
+    public static String getRandomTip(Context context) {
+        AssetManager assetManager = context.getAssets();
+        String fileName = "tips/tips-" + getLanguage();
+        List<String> tipsList = new ArrayList<>();
+
+        try {
+            InputStream inputStream;
+            try {
+                inputStream = assetManager.open(fileName);
+            } catch (IOException ex) {
+                inputStream = assetManager.open("tips/tips");
+            }
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.trim().startsWith("//")) {
+                    tipsList.add(line);
+                }
+            }
+
+            reader.close();
+            inputStream.close();
+
+            Random random = new Random();
+            String randomTip = "";
+            while (randomTip.isEmpty() && !tipsList.isEmpty()) {
+                int randomIndex = random.nextInt(tipsList.size());
+                randomTip = tipsList.get(randomIndex);
+                tipsList.remove(randomIndex);
+            }
+
+            if (!randomTip.isEmpty()) {
+                return randomTip;
+            } else {
+                return "Get random tip is empty.";
+            }
+        } catch (IOException e) {
+            logE("MainActivityContextHelper", "getRandomTip() error: " + e.getMessage());
+            return "error";
+        }
     }
 }

@@ -60,7 +60,7 @@
 
         <Preference
             android:dependency="prefs_key_home_dock_bg_custom_enable"
-            android:fragment="com.sevtinge.hyperceiler.ui.fragment.sub.CustomBackgroundSettings"
+            android:fragment="com.sevtinge.hyperceiler.ui.sub.CustomBackgroundSettings"
             android:key="prefs_key_home_dock_bg_custom"
             android:title="@string/home_dock_bg_custom" />
 
@@ -134,12 +134,11 @@
             app:showSeekBarValue="true"
             app:stepValue="1" />
 
-        <moralnorm.preference.ColorPickerPreference
+        <ColorPickerPreference
             android:defaultValue="0"
             android:dependency="prefs_key_home_dock_bg_custom_enable"
             android:key="prefs_key_home_dock_bg_color"
-            android:title="@string/home_dock_bg_color"
-            app:showAlphaSlider="true" />
+            android:title="@string/home_dock_bg_color" />
 
         <!--<SeekBarPreferenceEx
             android:key="prefs_key_home_dock_icon_margin_bottom"

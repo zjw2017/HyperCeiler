@@ -6,6 +6,7 @@ import static com.sevtinge.hyperceiler.utils.devicesdk.SystemSDKKt.getRomAuthor;
 import android.content.Context;
 
 import com.sevtinge.hyperceiler.R;
+import com.sevtinge.hyperceiler.expansionpacks.utils.SignUtils;
 import com.sevtinge.hyperceiler.ui.MainActivityContextHelper;
 import com.sevtinge.hyperceiler.utils.devicesdk.SystemSDKKt;
 
@@ -36,7 +37,6 @@ public class SettingsNotifyHelper {
     }
 
     public static boolean isSignPass(Context context) {
-        MainActivityContextHelper helper = new MainActivityContextHelper(context);
-        return !helper.isSignCheckPass();
+        return !SignUtils.isSignCheckPass(context);
     }
 }

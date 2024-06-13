@@ -26,6 +26,7 @@ import android.os.IBinder;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.sevtinge.hyperceiler.crash.activity.CrashActivity;
 import com.sevtinge.hyperceiler.utils.shell.ShellInit;
 
 public class CrashService extends Service {
