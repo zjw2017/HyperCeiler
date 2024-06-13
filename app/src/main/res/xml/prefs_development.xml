@@ -19,6 +19,10 @@
     <Preference
         android:fragment="com.sevtinge.hyperceiler.ui.navigator.page.settings.development.DevelopmentUIFragment"
         android:key="prefs_key_development_ui"
-        android:title="@string/development_ui" />
+        android:title="@string/development_ui">
+        <extra
+            android:name="contentResId"
+            android:value="prefs_development_ui" />
+    </Preference>
 
 </PreferenceScreen>

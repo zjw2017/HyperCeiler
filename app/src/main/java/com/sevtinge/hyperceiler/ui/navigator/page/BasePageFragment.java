@@ -14,7 +14,7 @@ import androidx.annotation.Nullable;
 
 import com.sevtinge.hyperceiler.R;
 import com.sevtinge.hyperceiler.ui.CeilerTabActivity;
-import com.sevtinge.hyperceiler.ui.page.utils.HeaderUtils;
+import com.sevtinge.hyperceiler.ui.utils.HeaderUtils;
 import com.sevtinge.hyperceiler.ui.settings.adapter.HeaderAdapter;
 import com.sevtinge.hyperceiler.ui.settings.adapter.PreferenceHeader;
 import com.sevtinge.hyperceiler.ui.settings.adapter.ProxyHeaderViewAdapter;

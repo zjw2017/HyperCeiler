@@ -23,7 +23,7 @@ import android.view.View;
 import android.widget.EditText;
 
 import com.sevtinge.hyperceiler.R;
-import com.sevtinge.hyperceiler.ui.fragment.base.SettingsPreferenceFragment;
+import com.sevtinge.hyperceiler.ui.dashboard.DashboardFragment;
 import com.sevtinge.hyperceiler.utils.prefs.PrefsUtils;
 
 import java.util.Arrays;
@@ -33,7 +33,7 @@ import java.util.Map;
 import fan.appcompat.app.AlertDialog;
 import fan.preference.Preference;
 
-public class DevelopmentPrefsFragment extends SettingsPreferenceFragment {
+public class DevelopmentPrefsFragment extends DashboardFragment {
     Preference mType;
     Preference mClean;
 
@@ -42,7 +42,7 @@ public class DevelopmentPrefsFragment extends SettingsPreferenceFragment {
     }
 
     @Override
-    public int getContentResId() {
+    protected int getPreferenceScreenResId() {
         return R.xml.prefs_development_prefs;
     }
 

@@ -1,4 +1,4 @@
-package com.sevtinge.hyperceiler.ui.page.utils;
+package com.sevtinge.hyperceiler.ui.utils;
 
 import android.content.Context;
 import android.content.Intent;

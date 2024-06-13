@@ -21,15 +21,15 @@ package com.sevtinge.hyperceiler.ui.sub;
 import static com.sevtinge.hyperceiler.utils.devicesdk.SystemSDKKt.isAndroidVersion;
 
 import com.sevtinge.hyperceiler.R;
-import com.sevtinge.hyperceiler.ui.fragment.base.SettingsPreferenceFragment;
+import com.sevtinge.hyperceiler.ui.dashboard.DashboardFragment;
 
 import fan.preference.SwitchPreference;
 
-public class ContentExtensionFragment extends SettingsPreferenceFragment {
+public class ContentExtensionFragment extends DashboardFragment {
     SwitchPreference mUnlockTaplus;
 
     @Override
-    public int getContentResId() {
+    protected int getPreferenceScreenResId() {
         return R.xml.content_extension;
     }
 

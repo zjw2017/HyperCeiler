@@ -69,10 +69,12 @@
             app:entryValues="@array/log_level_value" />
 
         <Preference
-            android:fragment="com.sevtinge.hyperceiler.ui.navigator.page.settings.development.DevelopmentFragment"
+            android:fragment="com.sevtinge.hyperceiler.ui.sub.CommonFragment"
             android:key="prefs_key_development"
             android:title="@string/development" />
-
+        <extra
+            android:name="contentResId"
+            android:value="prefs_development" />
     </PreferenceCategory>
 
 </PreferenceScreen>

@@ -58,9 +58,13 @@
 
         
         <Preference
-            android:fragment="com.sevtinge.hyperceiler.ui.navigator.page.about.AboutContributerFragment"
+            android:fragment="com.sevtinge.hyperceiler.ui.sub.CommonFragment"
             android:key="prefs_key_about_contributer"
-            android:title="@string/about_contributer" />
+            android:title="@string/about_contributer" >
+            <extra
+                android:name="contentResId"
+                android:value="prefs_about_contributor" />
+        </Preference>
     </PreferenceCategory>
     <PreferenceCategory android:title="@string/about_translator_title">
         <Preference
@@ -112,9 +116,13 @@
         </Preference>
 
         <Preference
-            android:fragment="com.sevtinge.hyperceiler.ui.navigator.page.about.AboutUseFragment"
+            android:fragment="com.sevtinge.hyperceiler.ui.sub.CommonFragment"
             android:key="prefs_key_about_use"
-            android:title="@string/about_use" />
+            android:title="@string/about_use">
+            <extra
+                android:name="contentResId"
+                android:value="prefs_about_use" />
+        </Preference>
 
         <Preference
             android:summary="@string/about_donation_desc"

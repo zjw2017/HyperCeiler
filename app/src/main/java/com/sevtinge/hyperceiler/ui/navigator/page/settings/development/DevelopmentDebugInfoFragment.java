@@ -49,7 +49,7 @@ import android.widget.TextView;
 import com.sevtinge.hyperceiler.BuildConfig;
 import com.sevtinge.hyperceiler.R;
 import com.sevtinge.hyperceiler.ui.MainActivityContextHelper;
-import com.sevtinge.hyperceiler.ui.fragment.base.SettingsPreferenceFragment;
+import com.sevtinge.hyperceiler.ui.dashboard.DashboardFragment;
 import com.sevtinge.hyperceiler.utils.api.ProjectApi;
 import com.sevtinge.hyperceiler.utils.shell.ShellInit;
 
@@ -58,7 +58,7 @@ import java.util.Map;
 
 import fan.preference.Preference;
 
-public class DevelopmentDebugInfoFragment extends SettingsPreferenceFragment {
+public class DevelopmentDebugInfoFragment extends DashboardFragment {
 
     private Preference mDebugInfo;
     MainActivityContextHelper mainActivityContextHelper;
@@ -66,7 +66,7 @@ public class DevelopmentDebugInfoFragment extends SettingsPreferenceFragment {
 
 
     @Override
-    public int getContentResId() {
+    protected int getPreferenceScreenResId() {
         return R.xml.prefs_development_debug_info;
     }
 

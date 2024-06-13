@@ -25,13 +25,13 @@ import androidx.annotation.NonNull;
 
 import com.sevtinge.hyperceiler.BuildConfig;
 import com.sevtinge.hyperceiler.R;
-import com.sevtinge.hyperceiler.ui.fragment.base.SettingsPreferenceFragment;
+import com.sevtinge.hyperceiler.ui.dashboard.DashboardFragment;
 import com.sevtinge.hyperceiler.utils.shell.ShellInit;
 
 import fan.preference.Preference;
 import fan.preference.SwitchPreference;
 
-public class SafeModeFragment extends SettingsPreferenceFragment implements Preference.OnPreferenceChangeListener {
+public class SafeModeFragment extends DashboardFragment implements Preference.OnPreferenceChangeListener {
 
     String mPkgList = getProp("persist.hyperceiler.crash.report");
 
@@ -42,7 +42,7 @@ public class SafeModeFragment extends SettingsPreferenceFragment implements Pref
     SwitchPreference mDemo;
 
     @Override
-    public int getContentResId() {
+    protected int getPreferenceScreenResId() {
         return R.xml.prefs_settings_safe_mode;
     }
 

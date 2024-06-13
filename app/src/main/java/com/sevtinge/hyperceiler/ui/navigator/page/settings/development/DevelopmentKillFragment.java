@@ -27,7 +27,7 @@ import androidx.annotation.NonNull;
 
 import com.sevtinge.hyperceiler.R;
 import com.sevtinge.hyperceiler.data.AppData;
-import com.sevtinge.hyperceiler.ui.fragment.base.SettingsPreferenceFragment;
+import com.sevtinge.hyperceiler.ui.dashboard.DashboardFragment;
 import com.sevtinge.hyperceiler.utils.ContextUtils;
 import com.sevtinge.hyperceiler.utils.KillApp;
 import com.sevtinge.hyperceiler.utils.PackagesUtils;
@@ -43,7 +43,7 @@ import java.util.concurrent.ExecutorService;
 import fan.appcompat.app.AlertDialog;
 import fan.preference.Preference;
 
-public class DevelopmentKillFragment extends SettingsPreferenceFragment implements Preference.OnPreferenceClickListener {
+public class DevelopmentKillFragment extends DashboardFragment implements Preference.OnPreferenceClickListener {
     private List<AppData> appData = new ArrayList<>();
     private boolean init = false;
     Handler handler;
@@ -58,7 +58,7 @@ public class DevelopmentKillFragment extends SettingsPreferenceFragment implemen
     }
 
     @Override
-    public int getContentResId() {
+    protected int getPreferenceScreenResId() {
         return R.xml.prefs_development_kill;
     }
 

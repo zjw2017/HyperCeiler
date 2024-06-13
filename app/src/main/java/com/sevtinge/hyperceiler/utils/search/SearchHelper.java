@@ -371,7 +371,7 @@ public class SearchHelper {
                 "com.sevtinge.hyperceiler.ui.fragment.TrustServiceFragment");
 
         parsePrefXml(context, R.xml.calendar,
-                "com.sevtinge.hyperceiler.ui.fragment.CalendarFragment");
+                "com.sevtinge.hyperceiler.ui.fragment.CommonFragment");
 
         parsePrefXml(context, R.xml.securityadd,
                 "com.sevtinge.hyperceiler.ui.fragment.SecurityAddFragment");
