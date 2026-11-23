@@ -161,6 +161,20 @@ public class AuthCreakPatch extends CorePatchHelper {
                 public void after(HookParam methodHookParam) {
                     try {
                         if (CorePatchHelper.isFeatureEnabled(CorePatchHelper.PREF_AUTH_CREAK, true)) {
+                            // Android 17 QPR2 在 apkPath 前增加了 FileDescriptor 参数，
+                            // 统一按参数类型定位 apkPath，不再假设固定下标
+                            int apkPathIndex = -1;
+                            if (methodHookParam.getExecutable() instanceof Method hooked) {
+                                Class<?>[] parameterTypes = hooked.getParameterTypes();
+                                for (int i = 0; i < parameterTypes.length; i++) {
+                                    if (parameterTypes[i] == String.class) {
+                                        apkPathIndex = i;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (apkPathIndex < 0) return;
+                            final String apkPath = (String) methodHookParam.getArgs()[apkPathIndex];
                             Throwable throwable = methodHookParam.getThrowable();
                             Integer parseErr = null;
                             if (parseResult != null
@@ -185,12 +199,7 @@ public class AuthCreakPatch extends CorePatchHelper {
                                         if (PM == null) {
                                             XposedLog.w(TAG, "system", ProjectApi.mAppModulePkg + " Cannot get the Package Manager... Are you using MiUI?");
                                         } else {
-                                            PackageInfo pI;
-                                            if (parseErr != null) {
-                                                pI = PM.getPackageArchiveInfo((String) methodHookParam.getArgs()[1], 0);
-                                            } else {
-                                                pI = PM.getPackageArchiveInfo((String) methodHookParam.getArgs()[0], 0);
-                                            }
+                                            PackageInfo pI = PM.getPackageArchiveInfo(apkPath, 0);
                                             PackageInfo InstpI = PM.getPackageInfo(pI.packageName, PackageManager.GET_SIGNING_CERTIFICATES);
                                             lastSigs = InstpI.signingInfo.getSigningCertificateHistory();
                                         }
@@ -199,7 +208,7 @@ public class AuthCreakPatch extends CorePatchHelper {
                                 }
                                 try {
                                     if (lastSigs == null && CorePatchHelper.isFeatureEnabled(CorePatchHelper.PREF_DIGEST_CREAK, true)) {
-                                        final Object origJarFile = constructorExact.newInstance(methodHookParam.getArgs()[parseErr == null ? 0 : 1], true, false);
+                                        final Object origJarFile = constructorExact.newInstance(apkPath, true, false);
                                         final ZipEntry manifestEntry = (ZipEntry) callMethod(origJarFile, "findEntry", "AndroidManifest.xml");
                                         final Certificate[][] lastCerts;
                                         if (parseErr != null) {

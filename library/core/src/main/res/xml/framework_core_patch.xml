@@ -98,6 +98,18 @@
 
         <SwitchPreference
             android:defaultValue="false"
+            android:key="prefs_key_system_framework_disable_developer_verification"
+            android:summary="@string/system_framework_disable_developer_verification_desc"
+            android:title="@string/system_framework_disable_developer_verification" />
+
+        <SwitchPreference
+            android:defaultValue="false"
+            android:key="prefs_key_system_framework_disable_min_sdk_check"
+            android:summary="@string/system_framework_disable_min_sdk_check_desc"
+            android:title="@string/system_framework_disable_min_sdk_check" />
+
+        <SwitchPreference
+            android:defaultValue="false"
             android:key="prefs_key_system_framework_core_patch_bypass_isolation_violation"
             android:summary="@string/system_framework_core_patch_bypass_isolation_violation_desc"
             android:title="@string/system_framework_core_patch_bypass_isolation_violation" />

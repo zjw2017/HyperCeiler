@@ -522,6 +522,10 @@
     <string name="system_framework_disable_persistent_more">允许安装声明为持久性的应用</string>
     <string name="system_framework_disable_verification_agent">禁用安装包验证代理</string>
     <string name="system_framework_disable_verification_agent_desc">如 Play 商店的保护机制</string>
+    <string name="system_framework_disable_developer_verification">禁用开发者验证</string>
+    <string name="system_framework_disable_developer_verification_desc">跳过安装过程中的开发者验证服务（Android 16 QPR2+）</string>
+    <string name="system_framework_disable_min_sdk_check">禁用 minSdk 校验</string>
+    <string name="system_framework_disable_min_sdk_check_desc">允许安装 minSdkVersion 高于当前系统版本的应用</string>
     <string name="system_framework_use_android_package_installer">使用原生安装器</string>
     <string name="system_framework_use_android_package_installer_desc">恢复被破坏的 PackageInstaller API</string>
     <string name="system_framework_core_patch_bypass_isolation_violation">禁用隔离应用检查</string>

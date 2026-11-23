@@ -562,6 +562,10 @@
     <string name="system_framework_disable_persistent_more">Allows update persistent apps directly, such as updating the System UI directly.</string>
     <string name="system_framework_disable_verification_agent">Disable package verification agent</string>
     <string name="system_framework_disable_verification_agent_desc">e.g. Google Play Protection</string>
+    <string name="system_framework_disable_developer_verification">Disable developer verification</string>
+    <string name="system_framework_disable_developer_verification_desc">Skip the developer verification service during installation (Android 16 QPR2+)</string>
+    <string name="system_framework_disable_min_sdk_check">Disable minSdk check</string>
+    <string name="system_framework_disable_min_sdk_check_desc">Allow installing apps whose minSdkVersion is higher than the current system version</string>
     <string name="system_framework_use_android_package_installer">Use Android package installer</string>
     <string name="system_framework_use_android_package_installer_desc">Restore the broken PackageInstaller API</string>
     <string name="system_framework_core_patch_bypass_isolation_violation">Bypass isolation violation</string>

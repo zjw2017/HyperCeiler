@@ -31,15 +31,7 @@ public class DigestCreakPatch extends CorePatchHelper {
                 "com.android.internal.pm.parsing.pkg.ParsedPackage", int.class, new IMethodHook() {
                     @Override
                     public void after(HookParam param) {
-                        if (CorePatchHelper.isUsePreSignatureEnabled()) {
-                            //If we decide to crack this then at least make sure they are same apks, avoid another one that tries to impersonate.
-                            if (param.getResult().equals(false)) {
-                                String pPname = (String) com.sevtinge.hyperceiler.libhook.base.BaseHook.callMethod(param.getArgs()[1], "getPackageName");
-                                if (pPname.contentEquals((String) param.getArgs()[0])) {
-                                    param.setResult(true);
-                                }
-                            }
-                        }
+                        handlePreviousSignature(param);
                     }
                 });
         } catch (Throwable t) {
@@ -72,15 +64,7 @@ public class DigestCreakPatch extends CorePatchHelper {
                 ParsedPackage, int.class, new IMethodHook() {
                     @Override
                     public void after(HookParam param) {
-                        if (CorePatchHelper.isUsePreSignatureEnabled()) {
-                            //If we decide to crack this then at least make sure they are same apks, avoid another one that tries to impersonate.
-                            if (param.getResult().equals(false)) {
-                                String pPname = (String) com.sevtinge.hyperceiler.libhook.base.BaseHook.callMethod(param.getArgs()[1], "getPackageName");
-                                if (pPname.contentEquals((String) param.getArgs()[0])) {
-                                    param.setResult(true);
-                                }
-                            }
-                        }
+                        handlePreviousSignature(param);
                     }
                 });
         } catch (Throwable t) {
@@ -99,15 +83,7 @@ public class DigestCreakPatch extends CorePatchHelper {
                         hookMethod(doesSignatureMatchForPermissions, new IMethodHook() {
                             @Override
                             public void after(HookParam param) {
-                                if (CorePatchHelper.isUsePreSignatureEnabled()) {
-                                    //If we decide to crack this then at least make sure they are same apks, avoid another one that tries to impersonate.
-                                    if (param.getResult().equals(false)) {
-                                        String pPname = (String) com.sevtinge.hyperceiler.libhook.base.BaseHook.callMethod(param.getArgs()[1], "getPackageName");
-                                        if (pPname.contentEquals((String) param.getArgs()[0])) {
-                                            param.setResult(true);
-                                        }
-                                    }
-                                }
+                                handlePreviousSignature(param);
                             }
                         });
                     }
@@ -142,6 +118,7 @@ public class DigestCreakPatch extends CorePatchHelper {
                                 Object info = infos[0];
                                 @SuppressWarnings("unchecked")
                                 List<X509Certificate> verifiedSignerCertChain = (List<X509Certificate>) com.sevtinge.hyperceiler.libhook.base.BaseHook.callMethod(info, "getCertificateChain", block);
+                                if (verifiedSignerCertChain == null) return;
                                 param.setResult(verifiedSignerCertChain.toArray(
                                     new X509Certificate[0]));
                             }
@@ -203,6 +180,57 @@ public class DigestCreakPatch extends CorePatchHelper {
             }
         } catch (Throwable t) {
             XposedLog.e(TAG, "system", "Android 11+ 2/2 hook failed, crash: " + t);
+        }
+    }
+
+    /** 防止递归进入 doesSignatureMatchForPermissions（内部复检会再次触发本钩子） */
+    private final ThreadLocal<Boolean> mCheckingInstalledSignature = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * 旧签名特例（对齐 corepatch upstream 299b265）：
+     * 同包名直接放行；否则取已安装包与待安装包做原检查，
+     * 放行“只改内容、签名一致”的更新，同时避免同名仿冒。
+     */
+    private void handlePreviousSignature(HookParam param) {
+        if (!CorePatchHelper.isUsePreSignatureEnabled()) return;
+        if (!Boolean.FALSE.equals(param.getResult())) return;
+        if (Boolean.TRUE.equals(mCheckingInstalledSignature.get())) return;
+        Object parsedPackage = param.getArgs()[1];
+        if (parsedPackage == null) return;
+        Object sourcePackageName = param.getArgs()[0];
+        if (sourcePackageName == null) return;
+        Object parsedName = com.sevtinge.hyperceiler.libhook.base.BaseHook.callMethod(parsedPackage, "getPackageName");
+        if (sourcePackageName.equals(parsedName)) {
+            param.setResult(true);
+            return;
+        }
+        Object helper = param.getThisObject();
+        if (helper == null) return;
+        Object oldPackage = findInstalledPackage(helper, String.valueOf(parsedName));
+        if (oldPackage == null) return;
+        mCheckingInstalledSignature.set(true);
+        try {
+            Object matches = com.sevtinge.hyperceiler.libhook.base.BaseHook.callMethod(
+                helper, "doesSignatureMatchForPermissions", sourcePackageName, oldPackage, param.getArgs()[2]);
+            if (Boolean.TRUE.equals(matches)) param.setResult(true);
+        } catch (Throwable t) {
+            XposedLog.w(TAG, "system", "failed to check the installed package signature", t);
+        } finally {
+            mCheckingInstalledSignature.remove();
+        }
+    }
+
+    /** mPm → snapshotComputer() → getPackageStateInternal(name) → getAndroidPackage() */
+    private Object findInstalledPackage(Object helper, String packageName) {
+        try {
+            Object pm = com.sevtinge.hyperceiler.libhook.base.BaseHook.getObjectField(helper, "mPm");
+            Object computer = com.sevtinge.hyperceiler.libhook.base.BaseHook.callMethod(pm, "snapshotComputer");
+            Object state = com.sevtinge.hyperceiler.libhook.base.BaseHook.callMethod(computer, "getPackageStateInternal", packageName);
+            if (state == null) return null;
+            return com.sevtinge.hyperceiler.libhook.base.BaseHook.callMethod(state, "getAndroidPackage");
+        } catch (Throwable t) {
+            XposedLog.w(TAG, "system", "failed to find the installed package", t);
+            return null;
         }
     }
 

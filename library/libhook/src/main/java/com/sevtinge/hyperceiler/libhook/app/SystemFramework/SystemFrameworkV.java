@@ -108,6 +108,10 @@ public class SystemFrameworkV extends BaseLoad {
         initHook(new AllowUpdateSystemApp(), PrefsBridge.getBoolean("system_framework_core_patch_allow_update_system_app"));
         initHook(new DisableLowApiCheckForU(), PrefsBridge.getBoolean("system_framework_disable_low_api_check"));
         initHook(new DisablePersistent(), PrefsBridge.getBoolean("system_framework_disable_persistent"));
+        initHook(new com.sevtinge.hyperceiler.libhook.rules.systemframework.corepatch.BypassMinSdkCheck(),
+            PrefsBridge.getBoolean("system_framework_disable_min_sdk_check"));
+        initHook(new com.sevtinge.hyperceiler.libhook.rules.systemframework.corepatch.DisableDeveloperVerification(),
+            PrefsBridge.getBoolean("system_framework_disable_developer_verification"));
 
         // 小窗
         initHook(new AllowAutoStart(), PrefsBridge.getBoolean("system_framework_auto_start_apps_menu"));

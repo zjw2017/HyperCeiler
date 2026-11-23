@@ -120,27 +120,24 @@ public class SharedUserPatch extends CorePatchHelper {
 
             hookAllMethods(sharedUserSettingClass, "addPackage", new IMethodHook() {
                     @Override
-                    public void before(HookParam param) {
+                    public void after(HookParam param) {
+                        if (param.getThrowable() != null) return;
                         if (!CorePatchHelper.isSharedUserEnabled())
                             return;
                         var flags = (int) com.sevtinge.hyperceiler.libhook.base.BaseHook.getObjectField(param.getThisObject(), "uidFlags");
                         if ((flags & ApplicationInfo.FLAG_SYSTEM) != 0)
                             return; // do not modify system's signature
-                        var toAdd = param.getArgs()[0]; // PackageSetting
-                        if (toAdd == null) return;
-                        var added = false;
                         var sharedUserSig = Setting_getSigningDetails(param.getThisObject());
+                        if (sharedUserSig == null) return;
                         Object newSig = null;
                         var packages = /*Watchable?ArraySet<PackageSetting>*/ SharedUserSetting_packages(param.getThisObject());
                         var size = (int) com.sevtinge.hyperceiler.libhook.base.BaseHook.callMethod(packages, "size");
+                        // 已在 addPackage 之后，遍历时新包已入集合，无需跳过/特判
                         for (var i = 0; i < size; i++) {
                             var p = com.sevtinge.hyperceiler.libhook.base.BaseHook.callMethod(packages, "valueAt", i);
-                            if (toAdd.equals(p)) {
-                                // must be an existing package
-                                added = true;
-                                p = toAdd;
-                            }
+                            if (p == null) continue;
                             var packageSig = Setting_getSigningDetails(p);
+                            if (packageSig == null) continue;
                             // if old signing exists, return
                             if ((boolean) callOriginMethod(packageSig, "checkCapability", sharedUserSig, 0) || (boolean) callOriginMethod(sharedUserSig, "checkCapability", packageSig, 0)) {
                                 return;
@@ -151,8 +148,8 @@ public class SharedUserPatch extends CorePatchHelper {
                             if (newSig == null) newSig = packageSig;
                             else newSig = SigningDetails_mergeLineageWith(newSig, packageSig);
                         }
-                        if (!added || newSig == null) return;
-                        XposedLog.w(TAG, "system", "updating signature in sharedUser during add " + toAdd + ": " + param.getThisObject());
+                        if (newSig == null) return;
+                        XposedLog.w(TAG, "system", "updating signature in sharedUser during add: " + param.getThisObject());
                         Setting_setSigningDetails(param.getThisObject(), newSig);
                     }
                 }
