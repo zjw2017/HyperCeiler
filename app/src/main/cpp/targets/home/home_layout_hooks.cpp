@@ -28,6 +28,11 @@ extern "C" void hc_home_diagnostic_sample();
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 #include "home_layout_config.h"
 #include "home_back_gesture.h"
+#include "home_back_region_hooks.h"
+#ifdef HYPERCEILER_HYOS_BACKEND
+#include "targets/hyos/hyos_control.h"
+#include "home_startup.h"
+#endif
 #include "home_gestures_os4.h"
 #include "home_workspace_gesture.h"
 #include "home_workspace_swipe.h"
@@ -35,6 +40,8 @@ extern "C" void hc_home_diagnostic_sample();
 #include "home_report_feature_resolver.h"
 #include "home_report_render.h"
 #include "home_shortcut_management.h"
+#include "home_shortcut_menu.h"
+#include "home_shortcut_actions.h"
 #include "home_recents_haptic_runtime.h"
 #include "home_layout_knobs.h"
 #include "home_workspace_geometry.h"
@@ -111,10 +118,13 @@ bool home_madvise_protect_range(uintptr_t address, size_t bytes);
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
+#include <chrono>
+#include <condition_variable>
 #include <fstream>
 #include <exception>
 #include <optional>
 #include <memory>
+#include <mutex>
 #include <span>
 #include <string>
 #include <string_view>
@@ -148,6 +158,12 @@ void hc_report_0_entry();
 void* hc_report_original=nullptr;
 void hc_shortcuts_0_entry();
 void* hc_shortcuts_original=nullptr;
+void hc_shortcutmenu_0_entry();
+void* hc_shortcutmenu_original = nullptr;
+void hc_shareapk_0_entry();
+void* hc_shareapk_original = nullptr;
+void hc_freeformshortcut_0_entry();
+void* hc_freeformshortcut_original = nullptr;
 void* hc_recentshaptic_originals[7]{};
 void hc_recentshaptic_0_entry();void hc_recentshaptic_1_entry();void hc_recentshaptic_2_entry();
 void hc_recentshaptic_3_entry();void hc_recentshaptic_4_entry();void hc_recentshaptic_5_entry();void hc_recentshaptic_6_entry();
@@ -541,7 +557,10 @@ constexpr size_t kInfiniteSlotBase = kDockPositionSlotBase + 2;
 constexpr size_t kCustomTitleDrawerSlot = kInfiniteSlotBase + 2;
 constexpr size_t kShortcutManagementSlot = kCustomTitleDrawerSlot + 1;
 constexpr size_t kRecentsHapticSlotBase = kShortcutManagementSlot + 1;
-constexpr size_t kSlotCount = kRecentsHapticSlotBase + 7;
+constexpr size_t kShortcutMenuSlot = kRecentsHapticSlotBase + 7;
+constexpr size_t kShareApkSlot = kShortcutMenuSlot + 1;
+constexpr size_t kFreeformShortcutSlot = kShareApkSlot + 1;
+constexpr size_t kSlotCount = kFreeformShortcutSlot + 1;
 using Slot = nhk::InlineSlot<kPatchWords>;
 using Words = nhk::SlotWords<kPatchWords>;
 /* The companion slot's payload, declared here because `Words` only exists from this line down. */
@@ -552,6 +571,17 @@ using UnhookFunction = int (*)(void *);
 
 std::atomic_bool g_report_requested{false},g_report_ready{false};
 std::atomic_bool g_shortcuts_ready{false};
+std::atomic_bool g_shortcut_menu_requested{false}, g_shortcut_menu_ready{false};
+std::atomic_uint64_t g_shortcut_menu_hits{0}, g_shortcut_menu_applied{0};
+home_layout::BindingRetry g_shortcut_menu_retry;
+std::atomic_bool g_share_apk_requested{false}, g_share_apk_ready{false};
+std::atomic_uintptr_t g_share_apk_return{0};
+std::atomic_bool g_share_apk_applied{false};
+home_layout::BindingRetry g_share_apk_retry;
+std::atomic_bool g_freeform_shortcut_requested{false}, g_freeform_shortcut_ready{false};
+std::atomic_uintptr_t g_freeform_shortcut_resume{0};
+std::atomic_bool g_freeform_shortcut_applied{false};
+home_layout::BindingRetry g_freeform_shortcut_retry;
 std::shared_ptr<const home_layout::haptic::Plan> g_recents_haptic_routing;
 std::atomic_uint g_recents_haptic_bind_failure{0};
 std::atomic_uint g_shortcuts_bind_failure{0};
@@ -673,13 +703,46 @@ void sync_folder_layout(const home_layout::Config &config) {
     }
 }
 std::atomic_uint32_t g_back_gesture_config{60u | (100u << 16)};
-home_layout::BackGestureShape g_back_gesture_shape{};
+constexpr uint32_t kStockBackConfig = 60u | (100u << 16);
+#ifndef HYPERCEILER_HYOS_BACKEND
+std::atomic_uint32_t g_live_back_config{0};
+std::mutex g_back_config_mutex;
+std::condition_variable g_back_config_changed;
+bool g_back_config_pending = false;
+#endif
+
+uint32_t back_gesture_config() {
+#ifndef HYPERCEILER_HYOS_BACKEND
+    const auto live = g_live_back_config.load(std::memory_order_acquire);
+    if (live != 0) return live;
+#endif
+    return g_back_gesture_config.load(std::memory_order_acquire);
+}
+std::atomic_bool g_back_regions_ready{false};
+std::atomic_bool g_back_window_observed{false};
+bool g_back_window_reported = false;
+bool g_back_cleanup_reported = false;
 std::atomic_uint64_t g_back_stock{0};
-std::atomic_uint32_t g_back_stock_width{0};
+std::atomic_uint64_t g_back_stock_width{0};
 std::atomic_uint32_t g_back_stock_sequence{0};
+std::atomic_uint32_t g_back_stock_config{0};
+std::atomic_uint64_t g_back_generation{1};
+std::atomic_uint64_t g_back_stock_generation{0};
 std::atomic_flag g_back_stock_writer=ATOMIC_FLAG_INIT;
-std::atomic_uint32_t g_back_prime_stage{0};
-std::atomic_uint32_t g_back_window_applied[2]{{60u|(100u<<16)},{60u|(100u<<16)}};
+home_layout::BindingRetry g_back_discovery_retry;
+home_layout::BindingRetry g_back_install_retry;
+std::atomic_bool g_back_library_notified{false};
+struct BackWindowApplication {
+    uintptr_t receiver = 0;
+    uint64_t generation = 0;
+    home_layout::BackGestureInputs stock{};
+    home_layout::BackWindowRect rect{};
+};
+struct BackWindowState {
+    std::mutex mutex;
+    BackWindowApplication applied;
+};
+BackWindowState g_back_windows[2];
 home_layout::BackWindowShape g_back_window_shape{};
 
 std::atomic_int g_dock_horizontal_delta{0};
@@ -701,6 +764,20 @@ std::array<std::atomic_uint64_t,64> g_recent_hits{},g_recent_applied{};
 // Last-reported stamps for the header visibility diagnostics in hc_recent_body.
 std::array<std::atomic_uint64_t,64> g_recent_skip_trace{},g_recent_apply_trace{};
 std::array<std::atomic_uint32_t,64> g_recent_skips{};
+
+bool shortcut_actions_requested(const home_layout::Config &config) {
+    return (config.policies & (home_layout::kShortcutMenuPolicy | home_layout::kShortcutActionPolicies)) != 0;
+}
+
+void sync_shortcut_menu_config(const home_layout::Config &config) {
+    g_freeform_shortcut_requested.store((config.policies & home_layout::kFreeformShortcutPolicy) != 0,
+                                         std::memory_order_release);
+    g_share_apk_requested.store((config.policies & home_layout::kShareApkPolicy) != 0,
+                                std::memory_order_release);
+    const bool enabled = (config.policies & home_layout::kShortcutMenuPolicy) != 0;
+    if (g_shortcut_menu_requested.exchange(enabled, std::memory_order_acq_rel) != enabled)
+        __android_log_print(ANDROID_LOG_INFO, kTag, "shortcut menu requested=%d", enabled);
+}
 
 void sync_title_config(const home_layout::Config &config) {
     const int dock_horizontal=home_layout::valid_dock_horizontal(config.dock_horizontal)?config.dock_horizontal:0;
@@ -732,6 +809,7 @@ void sync_title_config(const home_layout::Config &config) {
             config.object_scales[1].enabled,config.object_scales[1].percent,
             config.object_scales[2].enabled,config.object_scales[2].percent);
     g_report_requested.store((config.policies&home_layout::kHideReportPolicy)!=0,std::memory_order_release);
+    sync_shortcut_menu_config(config);
     if(g_infinite_requested.exchange(config.infinite_scroll,std::memory_order_acq_rel)!=config.infinite_scroll)
         __android_log_print(ANDROID_LOG_INFO,kTag,"infinite scroll requested=%d",config.infinite_scroll);
     const double icon_scale = config.tweaks.icon_scale_enabled
@@ -795,7 +873,7 @@ bool g_magic_hook_armed = false;
 std::array<Slot, kSlotCount> g_slots{};
 home_layout::NativeColumns g_native_columns;
 uint64_t g_native_columns_prime_next = 0;
-std::atomic_bool g_native_columns_prime_attempted{false},g_back_prime_attempted{false};
+std::atomic_bool g_native_columns_prime_attempted{false};
 extern "C" void hc_native_columns_body(std::byte *saved) {
     uint32_t old = 0;
     const auto requested = __atomic_load_n(&hc_native_columns_request, __ATOMIC_ACQUIRE);
@@ -808,26 +886,43 @@ extern "C" void hc_native_columns_body(std::byte *saved) {
             old, requested >> 8, g_native_columns.slot);
     }
 }
+bool back_regions_enabled() {
+    if (!g_back_regions_ready.load(std::memory_order_acquire)) return false;
+#ifdef HYPERCEILER_HYOS_BACKEND
+    return hyos_control::allowed();
+#else
+    return true;
+#endif
+}
+
 extern "C" void hc_back_gesture_entry();
 extern "C" void *hc_back_gesture_original = nullptr;
 extern "C" void hc_back_gesture_body(std::byte *saved) {
-    const auto packed=g_back_gesture_config.load(std::memory_order_acquire);
+    const auto generation = g_back_generation.load(std::memory_order_acquire);
+    if (!back_regions_enabled()) return;
+    const auto packed=back_gesture_config();
     const auto integer=[&](unsigned reg){int32_t value;std::memcpy(&value,saved+reg*8,4);return value;};
     float width;std::memcpy(&width,saved+256+8*16,4); // native S8 (not Dart register roles)
     home_layout::BackGestureInputs in{integer(8),integer(21),integer(24),integer(28),integer(22),width};
-    if(in.screen_width>0&&in.screen_height>0&&in.screen_width<=32768&&in.screen_height<=32768
-        &&in.top>=0&&in.top<in.bottom&&in.bottom<=in.screen_height&&in.density>0&&in.density<=4096
-        &&std::isfinite(in.width_dp)&&in.width_dp>0){
-        const int pixels=int(in.width_dp*in.density/160.0f);
-        if(pixels>0&&pixels<=in.screen_width/2&&!g_back_stock_writer.test_and_set(std::memory_order_acquire)){
-            g_back_stock_sequence.fetch_add(1,std::memory_order_acq_rel);
-            g_back_stock.store(uint64_t(in.screen_width)|(uint64_t(in.screen_height)<<16)
-                |(uint64_t(in.top)<<32)|(uint64_t(in.bottom)<<48),std::memory_order_release);
-            g_back_stock_width.store(uint32_t(pixels),std::memory_order_release);
-            g_back_stock_sequence.fetch_add(1,std::memory_order_release);
-            g_back_stock_writer.clear(std::memory_order_release);
+    const bool valid = home_layout::back_gesture_geometry(in, {}).has_value();
+    if (!g_back_stock_writer.test_and_set(std::memory_order_acquire)) {
+        g_back_stock_sequence.fetch_add(1, std::memory_order_acq_rel);
+        if (valid) {
+            g_back_stock.store(uint64_t(in.screen_width) | (uint64_t(in.screen_height) << 16)
+                | (uint64_t(in.top) << 32) | (uint64_t(in.bottom) << 48), std::memory_order_release);
+            uint32_t width_bits;
+            std::memcpy(&width_bits, &in.width_dp, sizeof(width_bits));
+            g_back_stock_width.store(uint64_t(width_bits) | (uint64_t(in.density) << 32),
+                std::memory_order_release);
+            g_back_stock_config.store(packed, std::memory_order_release);
         }
+        g_back_stock_generation.store(valid ? generation : 0, std::memory_order_release);
+        g_back_stock_sequence.fetch_add(1, std::memory_order_release);
+        g_back_stock_writer.clear(std::memory_order_release);
     }
+    if (!valid || generation != g_back_generation.load(std::memory_order_acquire)
+            || packed != back_gesture_config()
+            || !back_regions_enabled()) return;
     if(!home_layout::adjust_back_gesture_inputs(in,
         {static_cast<int>(packed&0xffffu),static_cast<int>(packed>>16)}))return;
     std::memcpy(saved+8*8,&in.top,4);std::memcpy(saved+21*8,&in.bottom,4);
@@ -836,29 +931,48 @@ extern "C" void hc_back_gesture_body(std::byte *saved) {
 extern "C" void hc_back_window_entry();
 extern "C" void *hc_back_window_original=nullptr;
 Slot g_back_window_update{};
-bool stable_read(const Slot &,Words &);
+bool stable_back_read(const Slot &, Words &);
 extern "C" void hc_back_window_body(std::byte *saved){
     static thread_local bool nested=false;
-    if(nested||!g_back_window_update.address)return;
+    const auto generation = g_back_generation.load(std::memory_order_acquire);
+    if (nested || !back_regions_enabled()) return;
     const auto seq=g_back_stock_sequence.load(std::memory_order_acquire);if(seq&1)return;
     const auto stock=g_back_stock.load(std::memory_order_acquire);
-    const int stock_width=int(g_back_stock_width.load(std::memory_order_acquire));
-    if(seq!=g_back_stock_sequence.load(std::memory_order_acquire))return;
-    const int w=int(stock&0xffffu),h=int((stock>>16)&0xffffu),top=int((stock>>32)&0xffffu),bottom=int(stock>>48);
+    const auto stock_width = g_back_stock_width.load(std::memory_order_acquire);
+    const auto sampled_config = g_back_stock_config.load(std::memory_order_acquire);
+    const auto sampled_generation = g_back_stock_generation.load(std::memory_order_acquire);
+    if (generation != sampled_generation || seq != g_back_stock_sequence.load(std::memory_order_acquire)) return;
+    const auto width_bits = static_cast<uint32_t>(stock_width);
+    float width_dp;
+    std::memcpy(&width_dp, &width_bits, sizeof(width_dp));
+    const home_layout::BackGestureInputs input{
+        int32_t((stock >> 32) & 0xffffu), int32_t(stock >> 48),
+        int32_t(stock & 0xffffu), int32_t((stock >> 16) & 0xffffu),
+        int32_t(stock_width >> 32), width_dp,
+    };
     uintptr_t receiver=0;std::memcpy(&receiver,saved+20*8,8);if(!receiver)return;
     unsigned char side=0;std::memcpy(&side,reinterpret_cast<const void*>(receiver+g_back_window_shape.side_field),1);if(side>1)return;
-    const auto packed=g_back_gesture_config.load(std::memory_order_acquire);
-    const auto desired=home_layout::back_window_rect(w,h,top,bottom,stock_width,side,{int(packed&0xffffu),int(packed>>16)});
+    const auto packed=back_gesture_config();
+    if (packed != sampled_config && packed != kStockBackConfig) return;
+    const auto desired=home_layout::back_window_rect(input,side,{int(packed&0xffffu),int(packed>>16)});
     if(!desired)return;
     auto *scratch=saved+784+g_back_window_shape.rect_sp;
     home_layout::BackWindowRect current{};std::memcpy(&current,scratch,16);
-    if(current==*desired)return;
-    const auto nominal=home_layout::back_window_rect(w,h,top,bottom,stock_width,side,{});
-    const auto previous=g_back_window_applied[side].load(std::memory_order_acquire);
-    const auto old=home_layout::back_window_rect(w,h,top,bottom,stock_width,side,{int(previous&0xffffu),int(previous>>16)});
-    // Preserve another app's stricter exclusion/side region, and never multiply a prior width.
-    if((!nominal||current!=*nominal)&&(!old||current!=*old))return;
-    Words live{};if(!stable_read(g_back_window_update,live)||live!=g_back_window_update.original_words)return;
+    const auto nominal=home_layout::back_window_rect(input,side,{});
+    auto &window = g_back_windows[side];
+    std::unique_lock lock(window.mutex, std::try_to_lock);
+    if (!lock.owns_lock()) return;
+    auto &applied = window.applied;
+    const bool previously_applied = applied.receiver == receiver && applied.generation == generation
+        && applied.stock == input && applied.rect == current;
+    if (!previously_applied) applied = {};
+    if (current == *desired) return;
+    if ((!nominal || current != *nominal) && !previously_applied) return;
+    Words live{};if(!stable_back_read(g_back_window_update,live)||live!=g_back_window_update.original_words)return;
+    if (!back_regions_enabled()
+            || generation != g_back_generation.load(std::memory_order_acquire)
+            || seq != g_back_stock_sequence.load(std::memory_order_acquire)
+            || packed != back_gesture_config()) return;
     nested=true;
     reinterpret_cast<void(*)(uint32_t,const home_layout::BackWindowRect*)>(g_back_window_update.address)(side,&*desired);
     nested=false;
@@ -866,7 +980,12 @@ extern "C" void hc_back_window_body(std::byte *saved){
     int32_t window_width=0;std::memcpy(&window_width,saved+19*8,4);
     window_width=std::max(window_width,desired->right-desired->left);
     std::memcpy(saved+19*8,&window_width,4);
-    g_back_window_applied[side].store(packed,std::memory_order_release);
+    if (nominal && *desired != *nominal) {
+        applied = {receiver, generation, input, *desired};
+    } else {
+        applied = {};
+    }
+    g_back_window_observed.store(true, std::memory_order_relaxed);
 }
 std::string g_container_path;
 uint64_t g_view_begin = 0;
@@ -1370,6 +1489,9 @@ std::optional<DartLibrary> g_dart;
 struct RuntimeFeatures {
     std::optional<home_layout::features::ReportFeature> report;
     std::optional<home_layout::features::shortcuts::Plan> shortcuts;
+    std::optional<uint32_t> shortcut_menu;
+    std::optional<home_layout::features::shortcut_actions::ShareApk> share_apk;
+    std::optional<home_layout::features::shortcut_actions::Freeform> freeform_shortcut;
     std::optional<home_layout::haptic::Plan> recents_haptic;
     std::optional<home_layout::features::drawer::Plan> drawer;
     std::optional<home_layout::features::prestart::Plan> prestart;
@@ -1477,6 +1599,9 @@ const char* diagnostic_feature(size_t slot) {
     if(slot>=kDrawerSearchSlot&&slot<kDrawerSearchSlot+2)return "隐藏抽屉搜索框";
     if(slot==kReportSlot)return "隐藏桌面信息上报提示";
     if(slot==kShortcutManagementSlot)return "桌面快捷方式管理";
+    if (slot == kShortcutMenuSlot) return "桌面快捷菜单数量";
+    if (slot == kShareApkSlot) return "长按分享应用";
+    if (slot == kFreeformShortcutSlot) return "长按小窗模式";
     if(slot>=kRecentsHapticSlotBase&&slot<kRecentsHapticSlotBase+7)return "最近任务卡片滑动振动";
     if(slot>=kFolderPreviewReturnSlotBase&&slot<kFolderPreviewReturnSlotBase+3)return "大文件夹预览归位动画";
     return "用途未知的原生挂钩";
@@ -1685,6 +1810,9 @@ bool ensure_runtime_features() {
     found.drawer=home_layout::features::drawer::resolve(*code);
     found.report=home_layout::features::report_feature(*code);
     found.shortcuts=home_layout::features::shortcuts::resolve(*code);
+    found.shortcut_menu = home_layout::features::shortcut_menu::resolve(*code);
+    found.share_apk = home_layout::features::shortcut_actions::resolve_share_apk(*code);
+    found.freeform_shortcut = home_layout::features::shortcut_actions::resolve_freeform(*code);
     found.recents_haptic=home_layout::haptic::resolve(*code);
     found.prestart=home_layout::features::prestart::resolve(*code);
     const char* recent_failure=nullptr;
@@ -2099,6 +2227,165 @@ bool bind_magic_consumer(Located &located) {
     return true;
 }
 
+bool stable_back_read(const Slot &slot, Words &words) {
+    nhk::SourceWordOps source{slot.address, slot.source};
+    nhk::CodePage before{}, after{};
+    const auto size = sizeof(words);
+    return source.Page(slot.address, size, before) && (before.protection & PROT_EXEC)
+        && nhk::safe_read(slot.address, std::as_writable_bytes(std::span(&words, 1)))
+        && source.Page(slot.address, size, after) && (after.protection & PROT_EXEC)
+        && before.begin == after.begin && before.size == after.size;
+}
+
+const std::vector<size_t> &back_region_order() {
+    static const std::vector<size_t> order{kBackGestureSlot, kBackWindowSlot};
+    return order;
+}
+
+struct BackImageIdentity {
+    uint64_t load_base;
+    uint32_t device_major;
+    uint32_t device_minor;
+    uint64_t inode;
+    uint64_t container_offset;
+    bool operator==(const BackImageIdentity &) const = default;
+};
+std::optional<BackImageIdentity> g_back_image;
+bool g_back_image_supported = false;
+
+bool bind_back_regions(const Library &library) {
+    auto &core = g_slots[kBackGestureSlot];
+    auto &window = g_slots[kBackWindowSlot];
+    if (core.backend_owned || window.backend_owned || nhk::slot_has_pending(core)
+            || nhk::slot_has_pending(window)) {
+        return core.address != 0 && window.address != 0;
+    }
+
+    const auto &mapping = library.owned.front();
+    const BackImageIdentity identity{library.load_base, mapping.device_major,
+        mapping.device_minor, mapping.inode, library.view_begin};
+    if (g_back_image == identity) return g_back_image_supported;
+    g_back_image = identity;
+    g_back_install_retry.reset();
+    g_back_image_supported = false;
+    core = {};
+    window = {};
+
+    const auto image = home_layout::elf_targets::parse(library.bytes);
+    if (!image) return false;
+    const auto core_shape = home_layout::resolve_back_gesture(*image);
+    const auto window_shape = home_layout::resolve_back_window(*image);
+    Slot core_target{}, window_target{}, update{};
+    if (!core_shape || !window_shape || core_shape->splice == window_shape->splice
+            || !bind_target(library, core_shape->splice, core_target.address,
+                core_target.source, core_target.original_words)
+            || !bind_target(library, window_shape->splice, window_target.address,
+                window_target.source, window_target.original_words)
+            || !bind_target(library, window_shape->update, update.address,
+                update.source, update.original_words)) {
+        __android_log_print(ANDROID_LOG_WARN, kTag, "back regions contract not validated");
+        return false;
+    }
+    core_target.replacement = reinterpret_cast<void *>(hc_back_gesture_entry);
+    core_target.original = &hc_back_gesture_original;
+    window_target.replacement = reinterpret_cast<void *>(hc_back_window_entry);
+    window_target.original = &hc_back_window_original;
+    g_back_window_shape = *window_shape;
+    g_back_window_update = update;
+    core = core_target;
+    window = window_target;
+    g_back_image_supported = true;
+    __android_log_print(ANDROID_LOG_INFO, kTag, "back regions contract resolved");
+    return true;
+}
+
+void invalidate_back_regions() {
+    if (g_back_regions_ready.exchange(false, std::memory_order_acq_rel)) {
+        g_back_generation.fetch_add(1, std::memory_order_acq_rel);
+    }
+}
+
+void maintain_back_regions(uint64_t now, bool verify_mapping = false) {
+    const auto &order = back_region_order();
+    const auto &core = g_slots[kBackGestureSlot];
+    const auto &window = g_slots[kBackWindowSlot];
+    if (nhk::home_safe_mode::decision().blocked) {
+        invalidate_back_regions();
+        return;
+    }
+    if (!core.address || !window.address) return;
+    const bool ready = g_back_regions_ready.load(std::memory_order_acquire);
+    if (ready && g_back_window_observed.load(std::memory_order_relaxed) && !g_back_window_reported) {
+        g_back_window_reported = true;
+        __android_log_print(ANDROID_LOG_INFO, kTag, "back regions first window update observed");
+    }
+    if (ready && bank_live(order)) {
+        if (!verify_mapping) return;
+        Words update{};
+        Words core_live{}, window_live{};
+        if (stable_back_read(core, core_live) && core_live == core.patch_words
+                && stable_back_read(window, window_live) && window_live == window.patch_words
+                && stable_back_read(g_back_window_update, update)
+                && update == g_back_window_update.original_words) return;
+    }
+    if (!ready && !core.backend_owned && !window.backend_owned
+            && back_gesture_config() == kStockBackConfig) return;
+
+    invalidate_back_regions();
+    if (ready) {
+        g_back_install_retry.reset();
+        g_back_window_observed.store(false, std::memory_order_relaxed);
+        g_back_window_reported = false;
+        __android_log_print(ANDROID_LOG_WARN, kTag, "back regions readiness lost");
+    }
+    if (!g_back_install_retry.due(now)) return;
+    Words update{};
+    static const auto host = [] {
+        auto result = slot_host();
+        result.read_slot = stable_back_read;
+        return result;
+    }();
+    const bool valid = stable_back_read(g_back_window_update, update)
+        && update == g_back_window_update.original_words;
+    if (valid && home_layout::install_back_region_pair(g_slots, host, order)
+            && bank_live(order)) {
+        g_back_cleanup_reported = false;
+        g_back_regions_ready.store(true, std::memory_order_release);
+        __android_log_print(ANDROID_LOG_INFO, kTag, "back regions installation verified");
+    } else if ((core.backend_owned || window.backend_owned || nhk::slot_has_pending(core)
+            || nhk::slot_has_pending(window)) && !g_back_cleanup_reported) {
+        // No in-flight drain is provided by either backend. A reachable adapter
+        // remains an OEM pass-through with its continuation intact.
+        g_back_cleanup_reported = true;
+        __android_log_print(ANDROID_LOG_WARN, kTag, "back regions effects disabled; backend records retained");
+    }
+}
+
+void discover_back_regions(uint64_t now) {
+    if (g_back_library_notified.exchange(false, std::memory_order_acq_rel))
+        g_back_discovery_retry.reset();
+    if (g_back_regions_ready.load(std::memory_order_acquire)
+            || back_gesture_config() == kStockBackConfig) return;
+    const auto &core = g_slots[kBackGestureSlot];
+    const auto &window = g_slots[kBackWindowSlot];
+    if (core.backend_owned || window.backend_owned
+            || nhk::slot_has_pending(core) || nhk::slot_has_pending(window)
+            || !g_back_discovery_retry.due(now)) return;
+
+    // Reuse a bound target while its executable source is still mapped.
+    nhk::CodePage page{};
+    if (core.address && nhk::SourceWordOps{core.address, core.source}.Page(
+            core.address, sizeof(Words), page) && (page.protection & PROT_EXEC)) return;
+    std::ifstream maps("/proc/self/maps");
+    if (!maps) return;
+    const auto all = nhk::parse_file_mappings(maps);
+    const auto path = launcher_apk(all);
+    if (!path) return;
+    if (const auto image = open_library(*path, "libapp_launcher.so", all)) {
+        (void)bind_back_regions(*image);
+    }
+}
+
 std::optional<Located> locate() {
     std::ifstream maps("/proc/self/maps");
     if (!maps) return {};
@@ -2124,33 +2411,10 @@ std::optional<Located> locate() {
             } else __android_log_print(ANDROID_LOG_WARN,kTag,"native gesture dispatch validation declined");
         }
 
-        if (!g_slots[kBackGestureSlot].backend_owned) {
-            const auto shape = home_layout::resolve_back_gesture(rust->bytes);
-            uintptr_t address = 0; nhk::CodeSource source{}; Words words{};
-            if (shape && bind_target(*rust, shape->splice, address, source, words)) {
-                g_back_gesture_shape = *shape;
-                g_slots[kBackGestureSlot] = {address, reinterpret_cast<void *>(hc_back_gesture_entry),
-                    &hc_back_gesture_original, source, words};
-                located.container_path = rust->path;
-                located.view_begin = rust->view_begin; located.view_end = rust->view_end;
-                __android_log_print(ANDROID_LOG_INFO, kTag, "back gesture original body resolved va=%#llx splice=%#llx left=%u right=%u screen=%u",
-                    static_cast<unsigned long long>(shape->entry), static_cast<unsigned long long>(shape->splice),
-                    shape->left, shape->right, shape->screen);
-            } else {
-                __android_log_print(ANDROID_LOG_WARN, kTag, "back gesture region body not validated; original retained");
-            }
-        }
-        if(!g_slots[kBackWindowSlot].backend_owned){
-            const auto shape=home_layout::resolve_back_window(rust->bytes);
-            uintptr_t address=0,update=0;nhk::CodeSource source{},update_source{};Words words{},update_words{};
-            if(shape&&bind_target(*rust,shape->splice,address,source,words)
-                &&bind_target(*rust,shape->update,update,update_source,update_words)){
-                g_back_window_shape=*shape;
-                g_back_window_update={update,nullptr,nullptr,update_source,update_words};
-                g_slots[kBackWindowSlot]={address,reinterpret_cast<void*>(hc_back_window_entry),&hc_back_window_original,source,words};
-                __android_log_print(ANDROID_LOG_INFO,kTag,"back window apply source resolved splice=%#llx update=%#llx side=%u",
-                    (unsigned long long)shape->splice,(unsigned long long)shape->update,shape->side_field);
-            }
+        if (bind_back_regions(*rust)) {
+            located.container_path = rust->path;
+            located.view_begin = rust->view_begin;
+            located.view_end = rust->view_end;
         }
         const auto targets = home_layout::elf_targets::resolve(rust->bytes);
         if (targets && !g_slots[kNativeColumnsSlot].backend_owned) {
@@ -2203,6 +2467,19 @@ std::optional<Located> locate() {
 void delay_ms(long milliseconds) {
     timespec delay{milliseconds / 1000, (milliseconds % 1000) * 1000000};
     while (nanosleep(&delay, &delay) != 0 && errno == EINTR) {}
+}
+
+bool wait_layout_pass(long milliseconds) {
+#ifdef HYPERCEILER_HYOS_BACKEND
+    delay_ms(milliseconds);
+    return false;
+#else
+    std::unique_lock lock(g_back_config_mutex);
+    const bool changed = g_back_config_changed.wait_for(lock, std::chrono::milliseconds(milliseconds),
+        [] { return g_back_config_pending; });
+    g_back_config_pending = false;
+    return changed;
+#endif
 }
 
 /*
@@ -4648,6 +4925,126 @@ bool bind_shortcut_management() {
     return true;
 }
 
+void bind_shortcut_menu() {
+    if (g_slots[kShortcutMenuSlot].address || !g_shortcut_menu_requested.load(std::memory_order_acquire)
+        || !g_dart || !ensure_runtime_features() || !g_runtime_features.shortcut_menu) return;
+
+    Slot slot;
+    const auto site = *g_runtime_features.shortcut_menu;
+    if (!bind_dart_target(site, slot.address, slot.source, slot.original_words)) return;
+    slot.replacement = reinterpret_cast<void*>(hc_shortcutmenu_0_entry);
+    slot.original = &hc_shortcutmenu_original;
+    g_slots[kShortcutMenuSlot] = slot;
+    __android_log_print(ANDROID_LOG_INFO, kTag, "shortcut menu count bound site=%#x", site);
+}
+
+// Runs under the layout setup lease. Its slot can recover while the other
+// layout slots are unavailable, using the same ownership and page protection.
+void maintain_shortcut_menu(uint64_t now, bool verify_mapping = false) {
+    static const std::vector<size_t> order{kShortcutMenuSlot};
+    auto &slot = g_slots[kShortcutMenuSlot];
+    if (nhk::home_safe_mode::decision().blocked) {
+        g_shortcut_menu_ready.store(false, std::memory_order_release);
+        return;
+    }
+    const bool ready = g_shortcut_menu_ready.load(std::memory_order_acquire);
+    if (ready && bank_live(order)) {
+        if (!verify_mapping) return;
+        Words words{};
+        if (stable_read(slot, words) && words == slot.patch_words) return;
+    }
+    if (ready) {
+        g_shortcut_menu_ready.store(false, std::memory_order_release);
+        g_shortcut_menu_retry.reset();
+        __android_log_print(ANDROID_LOG_WARN, kTag, "shortcut menu installation lost");
+    }
+    const bool requested = g_shortcut_menu_requested.load(std::memory_order_acquire);
+    if ((!requested && !nhk::slot_has_pending(slot)) || !g_shortcut_menu_retry.due(now)) return;
+    if (!slot.address && ensure_dart_library()) bind_shortcut_menu();
+    if (slot.address && nhk::ensure_slots_live(g_slots, slot_host(), order)
+            && bank_live(order) && hc_shortcutmenu_original) {
+        g_shortcut_menu_ready.store(true, std::memory_order_release);
+        g_shortcut_menu_retry.reset();
+        __android_log_print(ANDROID_LOG_INFO, kTag, "shortcut menu installation verified");
+    }
+}
+
+void maintain_share_apk(uint64_t now, bool verify_mapping = false) {
+    static const std::vector<size_t> order{kShareApkSlot};
+    auto &slot = g_slots[kShareApkSlot];
+    if (nhk::home_safe_mode::decision().blocked) {
+        g_share_apk_ready.store(false, std::memory_order_release);
+        return;
+    }
+    if (g_share_apk_ready.load(std::memory_order_acquire)) {
+        Words words{};
+        if (bank_live(order) && (!verify_mapping
+                || (stable_read(slot, words) && words == slot.patch_words))) return;
+        g_share_apk_ready.store(false, std::memory_order_release);
+        g_share_apk_retry.reset();
+    }
+    if ((!g_share_apk_requested.load(std::memory_order_acquire) && !nhk::slot_has_pending(slot))
+        || !g_share_apk_retry.due(now)) return;
+    if (!slot.address && ensure_dart_library() && ensure_runtime_features() && g_runtime_features.share_apk) {
+        const auto& plan = *g_runtime_features.share_apk;
+        Slot bound;
+        uintptr_t async_return = 0;
+        nhk::CodeSource return_source;
+        Words return_words;
+        if (bind_dart_target(plan.eligibility, bound.address, bound.source, bound.original_words)
+            && bind_dart_target(plan.async_return, async_return, return_source, return_words)) {
+            bound.replacement = reinterpret_cast<void*>(hc_shareapk_0_entry);
+            bound.original = &hc_shareapk_original;
+            g_share_apk_return.store(async_return, std::memory_order_release);
+            slot = bound;
+        }
+    }
+    if (slot.address && nhk::ensure_slots_live(g_slots, slot_host(), order)
+        && bank_live(order) && hc_shareapk_original) {
+        g_share_apk_ready.store(true, std::memory_order_release);
+        g_share_apk_retry.reset();
+        __android_log_print(ANDROID_LOG_INFO, kTag, "share APK menu installation verified");
+    }
+}
+
+void maintain_freeform_shortcut(uint64_t now, bool verify_mapping) {
+    static const std::vector<size_t> order{kFreeformShortcutSlot};
+    auto &slot = g_slots[kFreeformShortcutSlot];
+    if (nhk::home_safe_mode::decision().blocked) {
+        g_freeform_shortcut_ready.store(false, std::memory_order_release);
+        return;
+    }
+    if (g_freeform_shortcut_ready.load(std::memory_order_acquire)) {
+        Words words{};
+        if (bank_live(order) && (!verify_mapping
+                || (stable_read(slot, words) && words == slot.patch_words))) return;
+        g_freeform_shortcut_ready.store(false, std::memory_order_release);
+        g_freeform_shortcut_retry.reset();
+    }
+    if ((!g_freeform_shortcut_requested.load(std::memory_order_acquire) && !nhk::slot_has_pending(slot))
+        || !g_freeform_shortcut_retry.due(now)) return;
+    if (!slot.address && ensure_dart_library() && ensure_runtime_features() && g_runtime_features.freeform_shortcut) {
+        const auto& plan = *g_runtime_features.freeform_shortcut;
+        Slot bound;
+        uintptr_t resume = 0;
+        nhk::CodeSource return_source;
+        Words return_words;
+        if (bind_dart_target(plan.device_result, bound.address, bound.source, bound.original_words)
+            && bind_dart_target(plan.continue_checks, resume, return_source, return_words)) {
+            bound.replacement = reinterpret_cast<void*>(hc_freeformshortcut_0_entry);
+            bound.original = &hc_freeformshortcut_original;
+            g_freeform_shortcut_resume.store(resume, std::memory_order_release);
+            slot = bound;
+        }
+    }
+    if (slot.address && nhk::ensure_slots_live(g_slots, slot_host(), order)
+        && bank_live(order) && hc_freeformshortcut_original) {
+        g_freeform_shortcut_ready.store(true, std::memory_order_release);
+        g_freeform_shortcut_retry.reset();
+        __android_log_print(ANDROID_LOG_INFO, kTag, "freeform shortcut installation verified");
+    }
+}
+
 bool bind_report() {
     if(g_slots[kReportSlot].address)return true;
     if(!g_report_requested.load(std::memory_order_acquire))return false;
@@ -4860,16 +5257,6 @@ size_t arm_hooks(std::vector<size_t> &order) {
 
     if (g_slots[kDockEditSlot].address && std::find(order.begin(),order.end(),kDockEditSlot)==order.end()) {
         order.push_back(kDockEditSlot); ++added;
-    }
-    if (g_slots[kBackGestureSlot].address &&
-        (g_slots[kBackGestureSlot].backend_owned || g_back_gesture_config.load(std::memory_order_acquire) != (60u | (100u << 16)))
-        && std::find(order.begin(), order.end(), kBackGestureSlot) == order.end()) {
-        order.push_back(kBackGestureSlot); ++added;
-    }
-    if(g_slots[kBackWindowSlot].address&&(g_slots[kBackWindowSlot].backend_owned
-        ||g_back_gesture_config.load(std::memory_order_acquire)!=(60u|(100u<<16)))
-        &&std::find(order.begin(),order.end(),kBackWindowSlot)==order.end()){
-        order.push_back(kBackWindowSlot);++added;
     }
     if(g_big_folder_size_bound)for(size_t i=0;i<7;++i){const size_t index=kBigFolderSizeSlotBase+i;
         if(std::find(order.begin(),order.end(),index)==order.end()){order.push_back(index);++added;}}
@@ -5321,9 +5708,24 @@ void *worker(void *) {
      * says nothing". One line costs less than that investigation did.
      */
     (void) pthread_setname_np(pthread_self(), "hc-home-layout");
+    const auto service_back_regions = [] {
+        const auto now = monotonic_ms();
+        discover_back_regions(now);
+        maintain_back_regions(now);
+    };
     home_layout::Config config;
     bool queried = false;
     for (int attempt = 0; attempt < 20; ++attempt) {
+#ifndef HYPERCEILER_HYOS_BACKEND
+        // A direct preference publish can be ready before the layout Binder.
+        if (g_live_back_config.load(std::memory_order_acquire) != 0
+            && back_gesture_config() != kStockBackConfig
+            && !g_back_regions_ready.load(std::memory_order_acquire)
+            && !g_loader_priming.test_and_set(std::memory_order_acquire)) {
+            service_back_regions();
+            g_loader_priming.clear(std::memory_order_release);
+        }
+#endif
         if (home_layout::query_config(config)) { queried = true; break; }
         if (g_library_load_notified.load(std::memory_order_acquire)
             && home_layout::query_bootstrap_config(config)) {
@@ -5331,14 +5733,15 @@ void *worker(void *) {
             g_library_load_notified.store(false, std::memory_order_release);
             break;
         }
-        delay_ms(100);
+        wait_layout_pass(100);
     }
     hc_recents_haptic_refresh();
     if (queried) {
         sync_title_config(config);
         if(!config.dock_show_title)(void)sync_dock_titles(false);
     }
-    if (!queried && !kDockEditPolicy && g_dock_title_requested.load(std::memory_order_acquire) != 1
+    if (!queried && !kDockEditPolicy && back_gesture_config() == kStockBackConfig
+        && g_dock_title_requested.load(std::memory_order_acquire) != 1
         && g_title_desktop_sp.load(std::memory_order_acquire) == 12
         && g_title_drawer_sp.load(std::memory_order_acquire) == 12
         && g_title_color.load(std::memory_order_acquire) == -1
@@ -5359,7 +5762,10 @@ void *worker(void *) {
     } setup_lease;
     // A new worker attempt must not replace a slot with an outstanding backend
     // or write obligation. Retry known cleanup using the existing attempt path.
-    for (Slot &slot : g_slots) {
+    for (size_t index = 0; index < g_slots.size(); ++index) {
+        if (index == kBackGestureSlot || index == kBackWindowSlot || index == kShortcutMenuSlot
+                || index == kShareApkSlot || index == kFreeformShortcutSlot) continue;
+        auto &slot = g_slots[index];
         if (nhk::slot_has_pending(slot) && !nhk::settle_slot_pending(slot, slot_host())) {
             __android_log_print(ANDROID_LOG_WARN, kTag,
                 "layout pending slot retained; rebuild deferred address=%p",
@@ -5411,15 +5817,13 @@ void *worker(void *) {
         || config.tweaks.fold_enabled || config.tweaks.icon_scale_enabled
         || config.object_scales[0].enabled || config.object_scales[1].enabled || config.object_scales[2].enabled
         || config.recent.requested() || (config.policies&home_layout::kDismissAnimationPolicy) || config.drawer_hide_search || config.dock_horizontal!=0 || config.infinite_scroll
+        || shortcut_actions_requested(config)
         || hyperceiler_home_prestart_disabled() || hc_recents_haptic_enabled()
         || config.tweaks.recents_hide_clear || config.tweaks.recents_no_clear
         || config.tweaks.animation_open_enabled || config.tweaks.animation_recents_enabled
         || config.tweaks.hotseat_unlimited || config.widget_allow_move || config.folder_auto_close || config.dock_show_title
-                                                                                                      ||
-                                                                                                      config.back_gesture.height !=
-                                                                                                      60 ||
-                                                                                                      config.back_gesture.width !=
-                                                                                                      100
+        || back_gesture_config() != kStockBackConfig
+        || config.back_gesture.height != 60 || config.back_gesture.width != 100
         || config.folder.full_width || config.folder.title_center
         || nhk::source_words_owned(g_dock_title_words);
     if (!kDockEditPolicy && !config.grid_enabled && !any_knob && !top_probe && !any_tweak
@@ -5436,16 +5840,18 @@ void *worker(void *) {
     publish_animation_rate(config.tweaks);
     push_tweaks(config);
 
+    service_back_regions();
     prime_home_layout_first_render_locked();
     std::optional<Located> located;
     for (int attempt = 0; attempt < 60; ++attempt) {
         // A late Dart mapping is discovered and primed here, off the loader and
         // input threads. Keep waiting for it when the Rust image appears first.
+        if (attempt != 0) service_back_regions();
         if(!g_first_render_finished.load(std::memory_order_acquire))prime_home_layout_first_render_locked();
         located = locate();
         if (located) break;
         if (g_library_load_notified.exchange(false, std::memory_order_acq_rel)) continue;
-        delay_ms(100);
+        wait_layout_pass(100);
     }
     if (!located) {
         /*
@@ -5609,7 +6015,11 @@ void *worker(void *) {
     (void) bind_dock_position();
     (void) bind_widget_scale();
     (void) bind_title_hide();
+    maintain_shortcut_menu(monotonic_ms());
+    maintain_share_apk(monotonic_ms());
+    maintain_freeform_shortcut(monotonic_ms(), false);
     arm_hooks(order);
+    maintain_back_regions(monotonic_ms());
     publish_hooks();
     (void) sync_hotseat_capacity(config.tweaks.hotseat_unlimited);
     (void) sync_widget_move(config.widget_allow_move);
@@ -5677,8 +6087,19 @@ void *worker(void *) {
      */
     uint64_t last_panel_query = 0;
     uint64_t last_generation_check = 0;
+    uint64_t last_back_generation_check = 0;
+    uint64_t last_shortcut_generation_check = 0;
+    uint64_t last_shortcut_config_query = 0;
+    home_layout::BindingRetry layout_bank_retry;
+    bool layout_bank_failed = false;
+    bool shortcut_requested = shortcut_actions_requested(config);
+    bool share_apk_applied_reported = false;
+    bool freeform_shortcut_applied_reported = false;
+    bool shortcut_hit_reported = false;
+    bool shortcut_applied_reported = false;
     for (;;) {
         const uint64_t now = monotonic_ms();
+        bool woken = false;
         /*
          * Drawable-desktop gate, the same one the dock maintenance worker uses. While the panel
          * dozes or another app covers home, the desktop is not drawn, so no patched call site can
@@ -5702,15 +6123,59 @@ void *worker(void *) {
                  * again, and while dozing a pass is a handful of word reads, so the tighter bound
                  * costs nothing.
                  */
-                delay_ms(kDozingIterationMs);
-                continue;
+                woken = wait_layout_pass(kDozingIterationMs);
+                if (!woken) continue;
             }
         }
-        delay_ms(kPassIntervalMs);
+        if (!woken) woken = wait_layout_pass(kPassIntervalMs);
+        if (woken) {
+            if (!g_loader_priming.test_and_set(std::memory_order_acquire)) {
+                service_back_regions();
+                g_loader_priming.clear(std::memory_order_release);
+            }
+            continue;
+        }
         // A late libapp or Rust mapping can still arrive after the first setup.
         // Process its notification under the same lease before admitting slots.
         if(g_loader_priming.test_and_set(std::memory_order_acquire))continue;
         struct PassLease {~PassLease(){g_loader_priming.clear(std::memory_order_release);}} pass_lease;
+        const bool verify_shortcut = interval_due(last_shortcut_generation_check, now, kGenerationCheckMs);
+        if (verify_shortcut) last_shortcut_generation_check = now;
+        if (layout_bank_failed && interval_due(last_shortcut_config_query, now, 1000)) {
+            last_shortcut_config_query = now;
+            home_layout::Config latest;
+            if (home_layout::query_config(latest)) sync_shortcut_menu_config(latest);
+        }
+        maintain_shortcut_menu(now, verify_shortcut);
+        maintain_share_apk(now, verify_shortcut);
+        maintain_freeform_shortcut(now, verify_shortcut);
+        if (!freeform_shortcut_applied_reported && g_freeform_shortcut_applied.load(std::memory_order_relaxed)) {
+            freeform_shortcut_applied_reported = true;
+            __android_log_print(ANDROID_LOG_INFO, kTag, "freeform shortcut phone visibility enabled");
+        }
+        if (!share_apk_applied_reported && g_share_apk_applied.load(std::memory_order_relaxed)) {
+            share_apk_applied_reported = true;
+            __android_log_print(ANDROID_LOG_INFO, kTag, "share APK menu eligibility enabled");
+        }
+        if (!shortcut_hit_reported && g_shortcut_menu_hits.load(std::memory_order_relaxed)) {
+            shortcut_hit_reported = true;
+            __android_log_print(ANDROID_LOG_INFO, kTag, "shortcut menu first callback observed");
+        }
+        if (!shortcut_applied_reported && g_shortcut_menu_applied.load(std::memory_order_relaxed)) {
+            shortcut_applied_reported = true;
+            __android_log_print(ANDROID_LOG_INFO, kTag, "shortcut menu first limit change 4 to 6");
+        }
+        if (layout_bank_failed) {
+            if (!layout_bank_retry.due(now)
+                || !nhk::ensure_slots_live(g_slots, slot_host(), order) || !bank_live(order)) continue;
+            layout_bank_failed = false;
+            layout_bank_retry.reset();
+            g_ready.store(config.grid_enabled && located && located->x && located->y,
+                std::memory_order_release);
+            g_dart_ready.store(!order.empty(), std::memory_order_release);
+            publish_hooks();
+            __android_log_print(ANDROID_LOG_INFO, kTag, "layout hook bank re-armed");
+        }
         ++iterations;
         if (g_library_load_notified.exchange(false, std::memory_order_acq_rel)) {
             // A matching image can arrive after the initial Rust/Dart snapshot.
@@ -5822,6 +6287,7 @@ void *worker(void *) {
             home_layout::Config latest;
             if (home_layout::query_config(latest)) {
                 sync_title_config(latest);
+                shortcut_requested |= shortcut_actions_requested(latest);
                 if (latest.grid_enabled && located && located->x != 0 && located->y != 0
                     && std::find(order.begin(), order.end(), size_t{0}) == order.end()) {
                     if (!g_slots[0].backend_owned) g_slots[0] = {located->x, reinterpret_cast<void *>(cell_x_replacement),
@@ -6121,6 +6587,10 @@ void *worker(void *) {
             && capacity_config.tweaks.hotseat_unlimited;
 #endif
         (void)sync_hotseat_capacity(capacity_enabled);
+        discover_back_regions(now);
+        const bool verify_back = interval_due(last_back_generation_check, now, kGenerationCheckMs);
+        if (verify_back) last_back_generation_check = now;
+        maintain_back_regions(now, verify_back);
         bool live = bank_live(order);
         /*
          * Periodic generation proof, at the backstop cadence rather than per pass: one inventory for
@@ -6154,7 +6624,11 @@ void *worker(void *) {
             g_captures_armed = false;
             __android_log_print(ANDROID_LOG_ERROR, kTag,
                 "layout hook bank unhealthy; stopped overriding");
-            return attempt_finished();
+            if (!shortcut_requested && !nhk::slot_has_pending(g_slots[kShortcutMenuSlot])
+                && !nhk::slot_has_pending(g_slots[kShareApkSlot])
+                && !nhk::slot_has_pending(g_slots[kFreeformShortcutSlot]))
+                return attempt_finished();
+            layout_bank_failed = true;
         }
     }
 }
@@ -6641,6 +7115,45 @@ extern "C" void hc_shortcuts_body(home_layout::recent_render::Registers* saved,u
         reinterpret_cast<uintptr_t>(hc_shortcuts_original)))g_shortcuts_applied.fetch_add(1,std::memory_order_relaxed);
 }
 
+extern "C" void hc_shareapk_body(home_layout::recent_render::Registers* saved, unsigned) {
+    if (!saved) return;
+    bool enabled = g_share_apk_ready.load(std::memory_order_acquire)
+        && g_share_apk_requested.load(std::memory_order_acquire);
+#ifdef HYPERCEILER_HYOS_BACKEND
+    enabled = enabled && hyos_control::feature_enabled(hyos_control::kShareApk);
+#endif
+    if (home_layout::features::shortcut_actions::apply_share_apk(*saved, enabled,
+            reinterpret_cast<uintptr_t>(hc_shareapk_original),
+            g_share_apk_return.load(std::memory_order_acquire)))
+        g_share_apk_applied.store(true, std::memory_order_relaxed);
+}
+
+extern "C" void hc_freeformshortcut_body(home_layout::recent_render::Registers* saved, unsigned) {
+    if (!saved) return;
+    bool enabled = g_freeform_shortcut_ready.load(std::memory_order_acquire)
+        && g_freeform_shortcut_requested.load(std::memory_order_acquire);
+#ifdef HYPERCEILER_HYOS_BACKEND
+    enabled = enabled && hyos_control::feature_enabled(hyos_control::kFreeformShortcut);
+#endif
+    if (home_layout::features::shortcut_actions::apply_freeform(*saved, enabled,
+            reinterpret_cast<uintptr_t>(hc_freeformshortcut_original),
+            g_freeform_shortcut_resume.load(std::memory_order_acquire)))
+        g_freeform_shortcut_applied.store(true, std::memory_order_relaxed);
+}
+
+extern "C" void hc_shortcutmenu_body(home_layout::recent_render::Registers* saved, unsigned) {
+    if (!saved) return;
+    g_shortcut_menu_hits.fetch_add(1, std::memory_order_relaxed);
+    bool enabled = g_shortcut_menu_ready.load(std::memory_order_acquire)
+        && g_shortcut_menu_requested.load(std::memory_order_acquire);
+#ifdef HYPERCEILER_HYOS_BACKEND
+    enabled = enabled && hyos_control::feature_enabled(hyos_control::kShortcutMenu);
+#endif
+    if (home_layout::features::shortcut_menu::apply(*saved, enabled,
+            reinterpret_cast<uintptr_t>(hc_shortcutmenu_original)))
+        g_shortcut_menu_applied.fetch_add(1, std::memory_order_relaxed);
+}
+
 extern "C" void hc_report_body(home_layout::recent_render::Registers* saved,unsigned) {
     if(!saved)return;
     g_report_hits.fetch_add(1,std::memory_order_relaxed);
@@ -7069,8 +7582,12 @@ bool adopt_layout_state() {
     if (!g_slots[kDockEditSlot].backend_owned) {
         hc_dock_edit_original=nullptr; hc_dock_edit_controller_field=hc_dock_edit_value_field=0;
     }
-    if (!g_slots[kBackGestureSlot].backend_owned) {
-        hc_back_gesture_original = nullptr; g_back_gesture_shape = {};
+    invalidate_back_regions();
+    g_back_window_observed.store(false, std::memory_order_relaxed);
+    g_back_window_reported = false;
+    g_back_cleanup_reported = false;
+    if (!g_slots[kBackGestureSlot].backend_owned && !nhk::slot_has_pending(g_slots[kBackGestureSlot])) {
+        hc_back_gesture_original = nullptr;
     }
     if (!g_slots[kNativeColumnsSlot].backend_owned) {
         hc_native_columns_original = nullptr; g_native_columns = {};
@@ -7088,13 +7605,22 @@ bool adopt_layout_state() {
     __atomic_store_n(&hc_dart_columns_applied,0u,__ATOMIC_RELAXED);
     g_native_columns_prime_next = 0;
     g_native_columns_prime_attempted.store(false,std::memory_order_release);
-    g_back_prime_attempted.store(false,std::memory_order_release);
-    if(!g_slots[kBackWindowSlot].backend_owned){hc_back_window_original=nullptr;g_back_window_update={};g_back_window_shape={};}
+    g_back_library_notified.store(false, std::memory_order_release);
+    g_back_discovery_retry.reset();
+    g_back_install_retry.reset();
+    g_back_image.reset();
+    g_back_image_supported = false;
+    if (!g_slots[kBackWindowSlot].backend_owned && !nhk::slot_has_pending(g_slots[kBackWindowSlot])) {
+        hc_back_window_original = nullptr;
+    }
     g_back_stock.store(0,std::memory_order_release);g_back_stock_width.store(0,std::memory_order_release);
+    g_back_stock_config.store(0, std::memory_order_release);
+    g_back_stock_generation.store(0, std::memory_order_release);
     g_back_stock_sequence.store(0,std::memory_order_release);g_back_stock_writer.clear(std::memory_order_release);
-    g_back_prime_stage.store(0,std::memory_order_release);
-    for(auto &applied:g_back_window_applied)applied.store(60u|(100u<<16),std::memory_order_release);
     g_back_gesture_config.store(60u | (100u << 16), std::memory_order_release);
+#ifndef HYPERCEILER_HYOS_BACKEND
+    g_live_back_config.store(0, std::memory_order_release);
+#endif
     g_grid_field = {};
     g_folder_geometry_checked=false;g_folder_geometry_contract={};g_drop_geometry_contract={};
     g_big_folder_size_bound=g_big_folder_size_checked=false;g_big_folder_size_fields={};
@@ -7193,6 +7719,30 @@ bool adopt_layout_state() {
     g_shortcuts_bind_failure.store(0,std::memory_order_relaxed);
     g_shortcuts_hits.store(0,std::memory_order_relaxed);g_shortcuts_applied.store(0,std::memory_order_relaxed);
     hc_shortcuts_original=nullptr;
+    g_shortcut_menu_requested.store(false, std::memory_order_release);
+    g_shortcut_menu_ready.store(false, std::memory_order_release);
+    g_shortcut_menu_hits.store(0, std::memory_order_relaxed);
+    g_shortcut_menu_applied.store(0, std::memory_order_relaxed);
+    g_shortcut_menu_retry.reset();
+    g_freeform_shortcut_requested.store(false, std::memory_order_release);
+    g_freeform_shortcut_ready.store(false, std::memory_order_release);
+    g_freeform_shortcut_applied.store(false, std::memory_order_relaxed);
+    g_freeform_shortcut_retry.reset();
+    if (!g_slots[kFreeformShortcutSlot].backend_owned && !nhk::slot_has_pending(g_slots[kFreeformShortcutSlot])) {
+        hc_freeformshortcut_original = nullptr;
+        g_freeform_shortcut_resume.store(0, std::memory_order_release);
+    }
+    g_share_apk_requested.store(false, std::memory_order_release);
+    g_share_apk_ready.store(false, std::memory_order_release);
+    g_share_apk_applied.store(false, std::memory_order_relaxed);
+    g_share_apk_retry.reset();
+    if (!g_slots[kShareApkSlot].backend_owned && !nhk::slot_has_pending(g_slots[kShareApkSlot])) {
+        hc_shareapk_original = nullptr;
+        g_share_apk_return.store(0, std::memory_order_release);
+    }
+    if (!g_slots[kShortcutMenuSlot].backend_owned && !nhk::slot_has_pending(g_slots[kShortcutMenuSlot])) {
+        hc_shortcutmenu_original = nullptr;
+    }
     hc_recents_haptic_ready(false);
     hc_recents_close_haptic_ready(false);
     g_recents_haptic_bind_failure.store(0,std::memory_order_relaxed);
@@ -7225,7 +7775,13 @@ bool adopt_layout_state() {
     g_container_path.clear();
     g_view_begin = 0;
     g_view_end = 0;
-    for (Slot &slot : g_slots) slot = Slot{};
+    for (size_t index = 0; index < g_slots.size(); ++index) {
+        auto &slot = g_slots[index];
+        if ((index == kBackGestureSlot || index == kBackWindowSlot || index == kShortcutMenuSlot
+                || index == kShareApkSlot || index == kFreeformShortcutSlot)
+                && (slot.backend_owned || nhk::slot_has_pending(slot))) continue;
+        slot = Slot{};
+    }
     for (KnobRuntime &knob : g_knobs) {
         knob.hook_mode = false;
         knob.hook_address = 0;
@@ -7240,6 +7796,87 @@ bool adopt_layout_state() {
     }
     return true;
 }
+
+#ifdef HYPERCEILER_HYOS_BACKEND
+// The dedicated Hyos owner never enters the legacy resolver/slot bank. This
+// bridge shares only the already-tested Dart ABI's original pointers and atomic
+// parameters; legacy ART startup and maintenance continue to use their old bank.
+extern "C" {
+#define HC_STARTUP_DECL(n) void hc_home_startup_##n();
+HC_STARTUP_DECL(0) HC_STARTUP_DECL(1) HC_STARTUP_DECL(2) HC_STARTUP_DECL(3)
+HC_STARTUP_DECL(4) HC_STARTUP_DECL(5) HC_STARTUP_DECL(6) HC_STARTUP_DECL(7)
+HC_STARTUP_DECL(8) HC_STARTUP_DECL(9) HC_STARTUP_DECL(10) HC_STARTUP_DECL(11)
+HC_STARTUP_DECL(12) HC_STARTUP_DECL(13) HC_STARTUP_DECL(14)
+#undef HC_STARTUP_DECL
+}
+namespace home_startup::detail {
+HookBinding binding(unsigned index) noexcept {
+    static const HookBinding bindings[] = {
+        {reinterpret_cast<void *>(hc_home_startup_0), &hc_layout_dart_HotseatMargin_original},
+        {reinterpret_cast<void *>(hc_home_startup_1), &hc_layout_dart_FolderRowSpacing_original},
+        {reinterpret_cast<void *>(hc_home_startup_2), &hc_layout_dart_WorkspaceTop_original},
+        {reinterpret_cast<void *>(hc_home_startup_3), &hc_layout_dart_WorkspaceBottom_original},
+        {reinterpret_cast<void *>(hc_home_startup_4), &hc_layout_dart_WorkspaceSide_original},
+        {reinterpret_cast<void *>(hc_home_startup_5), &hc_layout_dart_IndicatorMargin_original},
+        {reinterpret_cast<void *>(hc_home_startup_6), &hc_layout_dart_SearchBarMargin_original},
+        {reinterpret_cast<void *>(hc_home_startup_7), &hc_layout_dart_SearchBarWidth_original},
+        {reinterpret_cast<void *>(hc_home_startup_8), &hc_layout_dart_IndicatorDot_original},
+        {reinterpret_cast<void *>(hc_home_startup_9), &hc_layout_folder_original[0]},
+        {reinterpret_cast<void *>(hc_home_startup_10), &hc_layout_folder_original[1]},
+        {reinterpret_cast<void *>(hc_home_startup_11), &hc_layout_folder_original[2]},
+        {reinterpret_cast<void *>(hc_home_startup_12), &hc_layout_folder_original[3]},
+        {reinterpret_cast<void *>(hc_home_startup_13), &hc_layout_folder_original[4]},
+        {reinterpret_cast<void *>(hc_home_startup_14), &hc_layout_magic_original},
+    };
+    return index < std::size(bindings) ? bindings[index] : HookBinding{};
+}
+void initialize_consumers(uintptr_t base, uintptr_t edit, uintptr_t empty,
+    uintptr_t dots, uintptr_t idle, const uint32_t *resume) noexcept {
+    hc_layout_indicator_edit_call = base + edit;
+    hc_layout_indicator_build_empty = base + empty;
+    hc_layout_indicator_build_dots = base + dots;
+    hc_layout_indicator_idle_caller = base + idle;
+    for (size_t i = 0; i < 5; ++i) hc_layout_folder_resume[i] = base + resume[i];
+}
+void publish_consumers(const home_layout::Config &config, uint64_t applied) noexcept {
+    constexpr uint64_t groups[] = {HotseatMargin, FolderSpacing, Workspace, Workspace,
+        Workspace, CapsuleMargin, IndicatorPolicy, IndicatorPolicy};
+    for (size_t i = 0; i < g_knobs.size(); ++i) {
+        const int delta = (applied & groups[i]) && config.knobs[i].enabled
+            ? config.knobs[i].delta_dp : 0;
+        g_knobs[i].delta_dp.store(delta, std::memory_order_relaxed);
+        const double scaled = static_cast<double>(delta) * kKnobDeltaGain[i];
+        uint64_t bits = 0; std::memcpy(&bits, &scaled, sizeof(bits));
+        // Do not use init_knob_hooks or strings in the startup window.
+        uint64_t *deltas[] = {&hc_layout_dart_HotseatMargin_delta,
+            &hc_layout_dart_FolderRowSpacing_delta, &hc_layout_dart_WorkspaceTop_delta,
+            &hc_layout_dart_WorkspaceBottom_delta, &hc_layout_dart_WorkspaceSide_delta,
+            &hc_layout_dart_IndicatorMargin_delta, &hc_layout_dart_SearchBarMargin_delta,
+            &hc_layout_dart_SearchBarWidth_delta};
+        uint8_t *enabled[] = {&hc_layout_dart_HotseatMargin_enabled,
+            &hc_layout_dart_FolderRowSpacing_enabled, &hc_layout_dart_WorkspaceTop_enabled,
+            &hc_layout_dart_WorkspaceBottom_enabled, &hc_layout_dart_WorkspaceSide_enabled,
+            &hc_layout_dart_IndicatorMargin_enabled, &hc_layout_dart_SearchBarMargin_enabled,
+            &hc_layout_dart_SearchBarWidth_enabled};
+        __atomic_store_n(deltas[i], bits, __ATOMIC_RELAXED);
+        const bool workspace = (i == 2 || i == 3) && (applied & FolderGeometry);
+        __atomic_store_n(enabled[i], static_cast<uint8_t>(workspace || delta != 0), __ATOMIC_RELEASE);
+    }
+    const int mode = config.knobs[6].enabled ? config.knobs[6].delta_dp : 0;
+    __atomic_store_n(&hc_layout_indicator_mode,
+        static_cast<uint32_t>((applied & IndicatorPolicy) && mode >= 0 && mode <= 2 ? mode : 0),
+        __ATOMIC_RELEASE);
+    __atomic_store_n(&hc_layout_folder_enabled, (applied & FolderGeometry) ? 1u : 0u, __ATOMIC_RELEASE);
+    auto tweaks = config.tweaks;
+    tweaks.animation_recents_enabled = false; // Earlier Rust deadline is not established.
+    tweaks.animation_open_enabled = (applied & OpenAnimation) && tweaks.animation_open_enabled;
+    publish_animation_rate(tweaks);
+}
+void clear_consumers() noexcept {
+    publish_consumers(home_layout::Config{}, 0);
+}
+} // namespace home_startup::detail
+#endif
 
 void home_layout_prepare_for_launcher_child() {
     if (nhk::home_safe_mode::decision().blocked) return;
@@ -7619,48 +8256,6 @@ void report_start_verdict(const char *site, const char *verdict, bool adopted, i
  * `site` names the signal that asked for the worker (native-init / property / setprogname / library /
  * configure), so the log above can say which of the five call sites got what verdict.
  */
-void prime_back_regions(HookFunction hook,UnhookFunction unhook){
-    if(!hook||gettid()!=getpid()||g_dart_ready.load(std::memory_order_acquire)
-        ||g_back_setup_complete.load(std::memory_order_acquire)
-        ||g_back_prime_attempted.load(std::memory_order_acquire))return;
-    if(g_loader_priming.test_and_set(std::memory_order_acquire))return;
-    struct Release{~Release(){g_loader_priming.clear(std::memory_order_release);}} release;
-    if(g_back_setup_complete.load(std::memory_order_acquire)||g_slots[kBackWindowSlot].backend_owned)return;
-    g_back_prime_stage.store(1,std::memory_order_relaxed);
-    home_layout::Config config;if(!home_layout::query_bootstrap_config(config))return;
-    g_back_prime_stage.store(2,std::memory_order_relaxed);
-    if(config.back_gesture.height==60&&config.back_gesture.width==100)return;
-    std::ifstream maps("/proc/self/maps");if(!maps)return;
-    const auto all=nhk::parse_file_mappings(maps);const auto path=launcher_apk(all);if(!path)return;
-    g_back_prime_stage.store(3,std::memory_order_relaxed);
-    const auto rust=open_library(*path,"libapp_launcher.so",all);if(!rust)return;
-    // Once a complete image is readable, decoding/install retries belong to
-    // the worker. An unsupported contract is not a reason to scan per property.
-    g_back_prime_attempted.store(true,std::memory_order_release);
-    g_back_prime_stage.store(4,std::memory_order_relaxed);
-    const auto core=home_layout::resolve_back_gesture(rust->bytes);
-    const auto window=home_layout::resolve_back_window(rust->bytes);
-    if(!core||!window){
-        __android_log_print(ANDROID_LOG_WARN,kTag,"back pre-init contract unavailable; worker owns further discovery");
-        return;
-    }
-    uintptr_t a=0,b=0,c=0;nhk::CodeSource sa{},sb{},sc{};Words wa{},wb{},wc{};
-    if(!bind_target(*rust,core->splice,a,sa,wa)||!bind_target(*rust,window->splice,b,sb,wb)
-        ||!bind_target(*rust,window->update,c,sc,wc))return;
-    g_back_prime_stage.store(5,std::memory_order_relaxed);
-    g_hook_function=hook;g_unhook_function=unhook;
-    g_container_path=rust->path;g_view_begin=rust->view_begin;g_view_end=rust->view_end;
-    g_back_gesture_shape=*core;g_back_window_shape=*window;
-    g_slots[kBackGestureSlot]={a,reinterpret_cast<void*>(hc_back_gesture_entry),&hc_back_gesture_original,sa,wa};
-    g_slots[kBackWindowSlot]={b,reinterpret_cast<void*>(hc_back_window_entry),&hc_back_window_original,sb,wb};
-    g_back_window_update={c,nullptr,nullptr,sc,wc};
-    g_back_gesture_config.store(uint32_t(config.back_gesture.height)|(uint32_t(config.back_gesture.width)<<16),std::memory_order_release);
-    const std::vector<size_t> order{kBackGestureSlot,kBackWindowSlot};
-    const bool live=nhk::ensure_slots_live(g_slots,slot_host(),order);
-    g_back_prime_stage.store(live?7:6,std::memory_order_release);
-    __android_log_print(ANDROID_LOG_INFO,kTag,"back original regions pre-init stage=%d",live?7:6);
-}
-
 void prime_native_columns(HookFunction hook, UnhookFunction unhook) {
     if (!hook || gettid()!=getpid() || g_slots[kNativeColumnsSlot].backend_owned
         ||g_native_columns_prime_attempted.load(std::memory_order_acquire)
@@ -7764,3 +8359,39 @@ void start_home_layout_hooks(const char *site, HookFunction hook, UnhookFunction
 void notify_home_layout_library_loaded() {
     g_library_load_notified.store(true, std::memory_order_release);
 }
+
+void notify_home_back_launcher_loaded() {
+    g_back_library_notified.store(true, std::memory_order_release);
+}
+
+#ifndef HYPERCEILER_HYOS_BACKEND
+void publish_home_back_preferences(int height, int width) {
+    const auto packed = static_cast<uint32_t>(height) | (static_cast<uint32_t>(width) << 16);
+    const auto previous = g_live_back_config.exchange(packed, std::memory_order_acq_rel);
+    if (previous == packed || packed == kStockBackConfig
+            || g_back_regions_ready.load(std::memory_order_acquire)) return;
+    {
+        std::lock_guard lock(g_back_config_mutex);
+        g_back_config_pending = true;
+    }
+    g_back_config_changed.notify_one();
+}
+#endif
+
+#ifdef HYPERCEILER_HYOS_BACKEND
+void hyperceiler_home_maintain_back_gesture(HookFunction hook, UnhookFunction unhook) {
+    if (!hook || nhk::home_safe_mode::decision().blocked) return;
+    home_layout::Config config;
+    if (!hyos_control::layout_config(config)) return;
+    g_back_gesture_config.store(uint32_t(config.back_gesture.height)
+        | (uint32_t(config.back_gesture.width) << 16), std::memory_order_release);
+    g_hook_function = hook;
+    g_unhook_function = unhook;
+    static uint64_t last_check = 0;
+    const auto now = monotonic_ms();
+    discover_back_regions(now);
+    const bool verify_mapping = interval_due(last_check, now, kGenerationCheckMs);
+    if (verify_mapping) last_check = now;
+    maintain_back_regions(now, verify_mapping);
+}
+#endif

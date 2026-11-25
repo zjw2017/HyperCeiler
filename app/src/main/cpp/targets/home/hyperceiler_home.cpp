@@ -36,6 +36,10 @@ void prime_home_layout_knobs(int (*hook)(void *, void *, void **), int (*unhook)
 void prime_home_layout_first_render(int (*hook)(void *, void *, void **),int (*unhook)(void *));
 
 void notify_home_layout_library_loaded();
+void notify_home_back_launcher_loaded();
+#ifndef HYPERCEILER_HYOS_BACKEND
+void publish_home_back_preferences(int height, int width);
+#endif
 void home_layout_set_desktop_title_size(int sp);
 void home_layout_set_drawer_title_size(int sp);
 void home_layout_set_title_color(int argb);
@@ -312,7 +316,10 @@ void on_library_loaded(const char *name, void *) {
 #ifdef HYPERCEILER_HYOS_BACKEND
     // Loader notifications are drained by the control worker. The exact Dart
     // snapshot observer owns first layout; retain the property-hook fallback.
-    if (launcher && is_library(name, "libapp_launcher.so")) install_property_hook();
+    if (launcher && is_library(name, "libapp_launcher.so")) {
+        notify_home_back_launcher_loaded();
+        install_property_hook();
+    }
 #else
     // Keep the fork handoff before worker startup. This is pid-stamped and is
     // a no-op after native_init/setprogname has adopted the launcher child.
@@ -320,8 +327,9 @@ void on_library_loaded(const char *name, void *) {
     const std::string_view library_name(name);
     const bool dart_library = is_library(library_name, "libapp.so");
     const bool launcher_library = is_library(library_name, "libapp_launcher.so");
-    if (launcher) start_home_layout_hooks("library", g_hook_function, g_unhook_function);
     if (launcher && (dart_library || launcher_library)) notify_home_layout_library_loaded();
+    if (launcher && launcher_library) notify_home_back_launcher_loaded();
+    if (launcher) start_home_layout_hooks("library", g_hook_function, g_unhook_function);
     if (launcher && dart_library) home_layout_engine::HomeLayoutEngineOnLibraryLoaded(name);
     if (launcher) {
         home_layout_engine::HomeLayoutEnginePrepareForLauncherChild();
@@ -433,6 +441,20 @@ Java_com_sevtinge_hyperceiler_libhook_rules_home_other_NativeHomeHooksOS4_native
     JNIEnv *, jobject) {
     return native_status();
 }
+
+#ifndef HYPERCEILER_HYOS_BACKEND
+extern "C" JNIEXPORT void JNICALL
+Java_com_sevtinge_hyperceiler_libhook_rules_home_other_NativeHomeHooksOS4_nativeSetBackGesture(
+    JNIEnv *, jobject, jint height, jint width) {
+    if (native_installation_blocked() || !is_launcher_process()
+            || height < 10 || height > 100 || width < 100 || width > 400) return;
+    home_layout_prepare_for_launcher_child();
+    publish_home_back_preferences(height, width);
+    if (height != 60 || width != 100) {
+        start_home_layout_hooks("back-prefs", g_hook_function, g_unhook_function);
+    }
+}
+#endif
 
 // The launcher-native motion chain is started by process name, so the Dock preference has to be
 // pushed in explicitly: without this a launcher inside the module's scope keeps its health worker

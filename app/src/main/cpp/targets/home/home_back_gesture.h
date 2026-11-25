@@ -54,31 +54,34 @@ inline std::optional<BackGestureShape> back_shape(const elf_targets::Image &imag
     if (!receiver || !screen || !result || *screen + 8 > result->left) return {};
     result->screen = *screen; return result;
 }
-inline std::optional<BackGestureShape> resolve_back_gesture(std::span<const std::byte> bytes) {
-    const auto image=elf_targets::parse(bytes); if(!image)return {};
+inline std::optional<BackGestureShape> resolve_back_gesture(const elf_targets::Image &image) {
     std::optional<BackGestureShape> result;
     for (const char *label : {"update_home_region home_region: ", "update_region is_fold_or_pad: "}) {
-        const auto literal=elf_targets::unique_literal(*image,label);
+        const auto literal=elf_targets::unique_literal(image,label);
         if(!literal) continue;
-        const auto fn=elf_targets::unique_function(*image,*literal);
+        const auto fn=elf_targets::unique_function(image,*literal);
         if(!fn) return {};
-        const auto shape=back_shape(*image,*fn); if(!shape)return {};
+        const auto shape=back_shape(image,*fn); if(!shape)return {};
         if(result && result->entry!=shape->entry)return {};
         result=shape;
     }
     return result;
 }
 
+inline std::optional<BackGestureShape> resolve_back_gesture(std::span<const std::byte> bytes) {
+    const auto image = elf_targets::parse(bytes);
+    return image ? resolve_back_gesture(*image) : std::nullopt;
+}
+
 struct BackWindowShape { uint64_t apply=0,update=0,splice=0;uint32_t rect_sp=0,side_field=0; };
 struct BackWindowRect { int32_t left,top,right,bottom; bool operator==(const BackWindowRect &)const=default; };
-inline std::optional<BackWindowShape> resolve_back_window(std::span<const std::byte> bytes) {
-    const auto image=elf_targets::parse(bytes);if(!image)return {};
-    auto owner=[&](const char *text){auto l=elf_targets::unique_literal(*image,text);
-        return l?elf_targets::unique_function(*image,*l):std::optional<unwind::FunctionBounds>{};};
+inline std::optional<BackWindowShape> resolve_back_window(const elf_targets::Image &image) {
+    auto owner=[&](const char *text){auto l=elf_targets::unique_literal(image,text);
+        return l?elf_targets::unique_function(image,*l):std::optional<unwind::FunctionBounds>{};};
     const auto apply=owner(" apply_touchable_region (local coords): left="),update=owner(" update_valid_gesture_region: ");
     if(!apply||!update)return {};
     bool input=false,copy=false,width=false,call=false;
-    for(auto at=update->begin;at+8<=update->end;at+=4){auto a=image->word(at),b=image->word(at+4);if(!a||!b)return {};
+    for(auto at=update->begin;at+8<=update->end;at+=4){auto a=image.word(at),b=image.word(at+4);if(!a||!b)return {};
         if(at-update->begin<0x40&&*a==0xaa0103f4u)input=true;
         if(*a==0x3dc00280u&&(*b&0xffe00fffu)==0x3c8002c0u)copy=true;
         if(*a==0xb9400a89u&&*b==0xb940028au)width=true;
@@ -87,46 +90,80 @@ inline std::optional<BackWindowShape> resolve_back_window(std::span<const std::b
     }
     if(!input||!copy||!width||!call)return {};
     bool receiver=false,param=false;std::optional<BackWindowShape> result;
-    for(auto at=apply->begin;at+40<=apply->end;at+=4){auto a=image->word(at);if(!a)return {};
+    for(auto at=apply->begin;at+40<=apply->end;at+=4){auto a=image.word(at);if(!a)return {};
         if(at-apply->begin<0x60&&*a==0xaa0003f4u)receiver=true;
         if(at-apply->begin<0x60&&*a==0x2a0103f3u)param=true;
         if(*a!=0xb9401be8u)continue; // LDR W8,[SP,#24], right of copied Rect
-        std::array<uint32_t,10> w{};for(unsigned i=0;i<10;++i){auto v=image->word(at+i*4);if(!v)return {};w[i]=*v;}
+        std::array<uint32_t,10> w{};for(unsigned i=0;i<10;++i){auto v=image.word(at+i*4);if(!v)return {};w[i]=*v;}
         if(w[1]!=0xb94013e9u||w[2]!=0x4b090108u||w[3]!=0x7100051fu
             ||w[4]!=0xb9002fe8u||w[6]!=0x6b080269u||(w[8]&0xffc003ffu)!=0x3940028au)continue;
         if(result){return {};}result=BackWindowShape{apply->begin,update->begin,at,16,(w[8]>>10)&4095};
     }
     return receiver&&param?result:std::nullopt;
 }
-inline std::optional<BackWindowRect> back_window_rect(int w,int h,int top,int bottom,int stock_width,
-    unsigned side,BackGestureConfig config) {
-    if(w<=0||h<=0||w>32768||h>32768||top<0||top>=bottom||bottom>h
-        ||stock_width<=0||stock_width>w/2||side>1||config.height<10||config.height>100
-        ||config.width<100||config.width>400)return {};
-    int span=std::min(w/2,int(int64_t(stock_width)*config.width/100));
-    if(config.height!=60){int len=int(int64_t(h)*config.height/100);
-        if(h>=w)top=std::max(top,bottom-len);
-        else{int center=(top+bottom)/2;top=std::clamp(center-len/2,0,h-len);bottom=top+len;}}
-    return side==0?BackWindowRect{0,top,span,bottom}:BackWindowRect{w-span,top,w,bottom};
+inline std::optional<BackWindowShape> resolve_back_window(std::span<const std::byte> bytes) {
+    const auto image = elf_targets::parse(bytes);
+    return image ? resolve_back_window(*image) : std::nullopt;
 }
 
-struct BackGestureInputs { int32_t top, bottom, screen_width, screen_height, density; float width_dp; };
-inline bool adjust_back_gesture_inputs(BackGestureInputs &in, BackGestureConfig config) {
-    if(config.height<10 || config.height>100 || config.width<100 || config.width>400
-        || (config.height==60 && config.width==100)) return false;
-    const int32_t w=in.screen_width,h=in.screen_height;
-    if(w<=0 || h<=0 || w>32768 || h>32768 || in.top<0 || in.bottom>h || in.top>=in.bottom
-        || in.density<=0 || in.density>4096 || !std::isfinite(in.width_dp) || in.width_dp<=0) return false;
-    if(config.width!=100) {
-        // The original body converts dp*density/160 into pixel width after this splice.
-        in.width_dp=std::min(in.width_dp * (config.width/100.0f), (w/2)*160.0f/in.density);
+struct BackGestureInputs {
+    int32_t top, bottom, screen_width, screen_height, density;
+    float width_dp;
+    bool operator==(const BackGestureInputs &) const = default;
+};
+
+inline std::optional<int32_t> back_width_pixels(const BackGestureInputs &input) {
+    if (input.density <= 0 || input.density > 4096) return {};
+    const float pixels = input.width_dp * static_cast<float>(input.density) / 160.0f;
+    if (!(pixels >= 1.0f && pixels < 32769.0f)) return {};
+    return static_cast<int32_t>(pixels);
+}
+
+inline std::optional<BackGestureInputs> back_gesture_geometry(BackGestureInputs input,
+                                                             BackGestureConfig config) {
+    const auto width = back_width_pixels(input);
+    const auto w = input.screen_width;
+    const auto h = input.screen_height;
+    if (w <= 0 || h <= 0 || w > 32768 || h > 32768 || input.top < 0
+        || input.bottom > h || input.top >= input.bottom || !width || *width > w / 2
+        || config.height < 10 || config.height > 100
+        || config.width < 100 || config.width > 400) return {};
+    if (config.width != 100) {
+        const float cap = (w / 2) * 160.0f / input.density;
+        input.width_dp = std::min(input.width_dp * (config.width / 100.0f), cap);
+        if (const auto pixels = back_width_pixels(input); pixels && *pixels > w / 2) {
+            input.width_dp = std::nextafter(input.width_dp, 0.0f);
+        }
     }
-    if(config.height!=60) {
-        const int32_t length=std::min(h,static_cast<int32_t>(int64_t(h)*config.height/100));
-        if(h>=w) in.top=std::max(0,in.bottom-length);
-        else {const int32_t center=(in.top+in.bottom)/2;
-            in.top=std::clamp(center-length/2,0,h-length);in.bottom=in.top+length;}
+    if (config.height != 60) {
+        const auto length = std::max(1, h * config.height / 100);
+        if (h >= w) {
+            input.top = std::max(0, input.bottom - length);
+        } else {
+            const auto center = (input.top + input.bottom) / 2;
+            input.top = std::clamp(center - length / 2, 0, h - length);
+            input.bottom = input.top + length;
+        }
     }
+    return input;
+}
+
+inline std::optional<BackWindowRect> back_window_rect(const BackGestureInputs &stock,
+                                                     unsigned side, BackGestureConfig config) {
+    const auto target = back_gesture_geometry(stock, config);
+    if (!target || side > 1) return {};
+    const auto span = back_width_pixels(*target);
+    if (!span) return {};
+    const auto w = target->screen_width;
+    return side == 0 ? BackWindowRect{0, target->top, *span, target->bottom}
+                     : BackWindowRect{w - *span, target->top, w, target->bottom};
+}
+
+inline bool adjust_back_gesture_inputs(BackGestureInputs &input, BackGestureConfig config) {
+    if (config.height == 60 && config.width == 100) return false;
+    const auto target = back_gesture_geometry(input, config);
+    if (!target) return false;
+    input = *target;
     return true;
 }
 } // namespace home_layout

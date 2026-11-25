@@ -189,21 +189,41 @@ bool query_snapshot(hyos_snapshot::Words &words) {
     AParcel *input = nullptr;
     AParcel *output = nullptr;
     binder_status_t status = STATUS_BAD_VALUE;
-    if (associated && AIBinder_prepareTransaction(window, &input) == STATUS_OK && input != nullptr) {
-        status = AIBinder_transact(window, hyos_snapshot::kTransaction, &input, &output, 0);
+    const auto transact = [&](int32_t code) {
+        if (AIBinder_prepareTransaction(window, &input) == STATUS_OK && input != nullptr) {
+            status = AIBinder_transact(window, code, &input, &output, 0);
+        }
+        if (input != nullptr) AParcel_delete(input);
+        input = nullptr;
+    };
+    auto expected_ack = hyos_snapshot::kShortcutActionsAck;
+    if (associated) {
+        const auto fallback = [&](int32_t code, int32_t ack) {
+            if (status != STATUS_UNKNOWN_TRANSACTION) return;
+            if (output != nullptr) AParcel_delete(output);
+            output = nullptr;
+            status = STATUS_BAD_VALUE;
+            expected_ack = ack;
+            transact(code);
+        };
+        transact(hyos_snapshot::kShortcutActionsTransaction);
+        fallback(hyos_snapshot::kShortcutTransaction, hyos_snapshot::kShortcutAck);
+        fallback(hyos_snapshot::kBackTransaction, hyos_snapshot::kBackAck);
+        fallback(hyos_snapshot::kTransaction, hyos_snapshot::kAck);
     }
-    if (input != nullptr) AParcel_delete(input);
     AIBinder_decStrong(window);
+    const bool legacy = expected_ack == hyos_snapshot::kAck;
     bool valid = status == STATUS_OK && output != nullptr
-        && AParcel_getDataSize(output) == hyos_snapshot::kByteCount;
+        && AParcel_getDataSize(output) == (legacy ? hyos_snapshot::kByteCount : hyos_snapshot::kBackByteCount);
     // Android Parcel aligns both primitives to four bytes. This arm64-only
     // reader consumes the three little-endian int64 fields as paired words.
     // Actual Java writer bytes are covered by the cross-language corpus test.
-    for (auto &word : words) {
-        if (!valid || AParcel_readInt32(output, &word) != STATUS_OK) { valid = false; break; }
+    const auto count = legacy ? hyos_snapshot::kLegacyWordCount : words.size();
+    for (size_t index = 0; index < count; ++index) {
+        if (!valid || AParcel_readInt32(output, &words[index]) != STATUS_OK) { valid = false; break; }
     }
     if (output != nullptr) AParcel_delete(output);
-    return valid;
+    return valid && words[0] == expected_ack;
 }
 
 void poll_flags() {
@@ -305,6 +325,7 @@ void poll_flags() {
         g_poll_completed = true;
     }
     g_first_poll.notify_all();
+    if (g_initialized) hyperceiler_home_maintain_back_gesture(api->inlineHook, api->inlineUnhook);
     g_polling.clear(std::memory_order_release);
 }
 
@@ -348,7 +369,7 @@ bool ensure_thread(std::atomic_bool &started, void *(*body)(void *)) {
 namespace hyos_control {
 bool active() { return g_active.load(std::memory_order_acquire); }
 bool feature_enabled(uint32_t flag) {
-    if (flag == 0 || (flag & ~kKnownFlags) != 0) return false;
+    if (flag == 0 || (flag & ~(kKnownFlags | kShortcutMenu | hyos_snapshot::kShortcutActions)) != 0) return false;
     unsigned flags = 0;
     return fresh_flags(flags) && (flags & kAllowed) != 0 && (flags & flag) == flag;
 }
